@@ -1,0 +1,150 @@
+{
+  "__TEMPLATE__": true,
+  "agent": {
+    "enabled_plugins": [
+      "trace_tag",
+      "advanced_file_selection"
+    ],
+    "enabled_skills": [
+      "issue_triage",
+      "research_compare",
+      "ship_plan",
+      "file_selection_cot"
+    ],
+    "max_history_messages": 12,
+    "name": "MiniClaw",
+    "seeded_default_skills": true,
+    "skill_match_min_score": 2,
+    "system_prompt": "You are MiniClaw, optimized for smaller models. Be explicit about what actions you took, what data you used, and why.",
+    "system_prompt_default": "You are MiniClaw, optimized for smaller models. Be explicit about what actions you took, what data you used, and why."
+  },
+  "channels": {
+    "active_channel": "telegram",
+    "email": {
+      "allowed_senders": [],
+      "enabled": false,
+      "from_address": "",
+      "imap_host": "",
+      "password": "",
+      "poll_interval_seconds": 60,
+      "smtp_host": "",
+      "username": ""
+    },
+    "telegram": {
+      "allowed_chat_ids": [
+        "__TELEGRAM_CHAT_ID__"
+      ],
+      "binding_mode": "single",
+      "bot_token": "__TELEGRAM_BOT_TOKEN__",
+      "enabled": true,
+      "pairing_code_ttl_seconds": 600,
+      "pairing_required": true,
+      "poll_interval_seconds": 5,
+      "progress_update_seconds": 12
+    },
+    "whatsapp_wacli": {
+      "allowed_contacts": [],
+      "enabled": false,
+      "poll_interval_seconds": 15,
+      "session": "",
+      "wacli_command": "wacli"
+    }
+  },
+  "mcp": {
+    "enabled": true,
+    "servers": []
+  },
+  "memory": {
+    "enabled": true,
+    "files": [
+      "soul.md",
+      "user.md",
+      "project.md",
+      "journal.md"
+    ],
+    "max_chars_per_file": 3000
+  },
+  "monitoring": {
+    "max_events": 700
+  },
+  "ollama": {
+    "base_url": "__OLLAMA_BASE_URL__",
+    "model": "__OLLAMA_MODEL__",
+    "temperature": 0.2,
+    "timeout_seconds": 300,
+    "verify_tls": true
+  },
+  "providers": {
+    "default_provider_id": "__DEFAULT_PROVIDER_ID__",
+    "items": [
+      {
+        "api_key": "",
+        "base_url": "__OLLAMA_BASE_URL__",
+        "enabled": true,
+        "id": "ollama_default",
+        "model": "__OLLAMA_MODEL__",
+        "name": "Ollama Default",
+        "system_prompt_override": "",
+        "temperature": 0.2,
+        "timeout_seconds": 300,
+        "type": "ollama",
+        "verify_tls": true
+      },
+      {
+        "api_key": "__WANDB_API_KEY__",
+        "base_url": "https://api.inference.wandb.ai/v1",
+        "enabled": true,
+        "id": "wandb_inference",
+        "model": "openai/gpt-oss-120b",
+        "name": "W&B Inference",
+        "system_prompt_override": "",
+        "temperature": 0.7,
+        "timeout_seconds": 300,
+        "type": "openai_compatible",
+        "verify_tls": true
+      }
+    ]
+  },
+  "scheduler": {
+    "enabled": true,
+    "jobs": [
+      {
+        "enabled": true,
+        "id": "health_digest",
+        "interval_seconds": 1800,
+        "name": "Health Digest",
+        "prompt": "Summarize the latest monitoring events and call out warnings/errors with likely causes.",
+        "send_to_telegram_chat_id": ""
+      }
+    ],
+    "seeded_default_jobs": true
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+  "telegram": {
+    "allowed_chat_ids": [
+      "__TELEGRAM_CHAT_ID__"
+    ],
+    "binding_mode": "single",
+    "bot_token": "__TELEGRAM_BOT_TOKEN__",
+    "enabled": true,
+    "pairing_code_ttl_seconds": 600,
+    "pairing_required": true,
+    "poll_interval_seconds": 5,
+    "progress_update_seconds": 12
+  },
+  "tools": {
+    "allow_browser": true,
+    "allow_filesystem": true,
+    "allow_mcp": true,
+    "allow_network": true,
+    "allow_shell": true,
+    "command_timeout_seconds": 25,
+    "enabled": true,
+    "max_steps": 4,
+    "output_char_limit": 12000,
+    "working_directory": "__WORKING_DIRECTORY__"
+  }
+}

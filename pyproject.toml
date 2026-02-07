@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miniclaw"
+version = "0.1.0"
+description = "Ultra-lightweight personal AI assistant with Ollama, tools, Telegram, and web UI"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "MiniClaw" }]
+keywords = ["ai", "assistant", "ollama", "telegram", "agent", "cli"]
+dependencies = [
+  "litellm>=1.0.0",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.scripts]
+miniclaw = "miniclaw_cli:run_cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["miniclaw*"]
+
+[tool.setuptools]
+py-modules = ["miniclaw_cli"]
