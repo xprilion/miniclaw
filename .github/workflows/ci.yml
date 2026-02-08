@@ -135,28 +135,77 @@ jobs:
         # Create docs directory in output
         mkdir -p _site/docs
 
-    - name: Convert documentation to HTML
+    - name: Convert documentation to HTML (full /docs theme pages)
       run: |
         echo "Converting documentation files..."
         
-        # Create a temporary Python script for conversion (outputs fragment only for fetch-inject)
         cat > convert_docs.py << 'PYEOF'
         import os
         import re
         import json
         import markdown
-        import sys
-        
+
         def filename_to_title(filename):
             return re.sub(r'_', ' ', filename).title()
-        
-        def convert_markdown_to_html(input_file, output_file):
-            with open(input_file, 'r', encoding='utf-8') as f:
-                md_content = f.read()
-            html_content = markdown.markdown(md_content, extensions=['fenced_code', 'tables'])
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-        
+
+        def md_to_html(md_content):
+            return markdown.markdown(md_content, extensions=['fenced_code', 'tables'])
+
+        def docs_page_html(title, sidebar_html, content_html, active_id=None):
+            active = active_id or ""
+            return """<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>""" + title + """ - MiniClaw Docs</title>
+            <link rel="stylesheet" href="../css/docs.css">
+            <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+        </head>
+        <body class="docs-page">
+            <header class="docs-header">
+                <div class="logo">
+                    <a href="../index.html"><span class="logo-emoji" aria-hidden="true">🦀</span> MiniClaw</a>
+                </div>
+                <nav class="docs-header-nav">
+                    <a href="../index.html">Home</a>
+                    <a href="index.html">Docs</a>
+                    <button class="docs-theme-toggle" id="docs-theme-toggle" aria-label="Toggle theme">🌙</button>
+                </nav>
+            </header>
+            <div class="docs-wrapper">
+                <aside class="docs-sidebar">
+                    <div class="docs-sidebar-title">Documentation</div>
+                    <nav>""" + sidebar_html + """</nav>
+                </aside>
+                <main class="docs-main">
+                    <div class="docs-content">""" + content_html + """</div>
+                </main>
+            </div>
+            <script>
+                (function(){
+                    var t=document.getElementById('docs-theme-toggle');
+                    var v=localStorage.getItem('docs-theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+                    if(v==='dark'){ document.body.classList.add('dark-mode'); t.textContent='☀️'; }
+                    t.onclick=function(){
+                        document.body.classList.toggle('dark-mode');
+                        var d=document.body.classList.contains('dark-mode');
+                        localStorage.setItem('docs-theme',d?'dark':'light');
+                        t.textContent=d?'☀️':'🌙';
+                    };
+                })();
+            </script>
+        </body>
+        </html>"""
+
+        def sidebar_links(doc_list, active_id):
+            out = ["<ul>"]
+            for d in doc_list:
+                cls = ' class="active"' if d["id"] == active_id else ""
+                out.append('<li><a href="%s.html"%s>%s</a></li>' % (d["id"], cls, d["title"]))
+            out.append("</ul>")
+            return "\n".join(out)
+
         if __name__ == "__main__":
             docs_dir = "docs"
             out_dir = "_site/docs"
@@ -167,17 +216,35 @@ jobs:
             for name in sorted(os.listdir(docs_dir)):
                 if name.endswith(".md"):
                     base = name[:-3]
-                    input_path = os.path.join(docs_dir, name)
-                    output_path = os.path.join(out_dir, base + ".html")
-                    convert_markdown_to_html(input_path, output_path)
                     doc_list.append({"id": base, "title": filename_to_title(base)})
-                    print(f"Converted {name} -> {base}.html")
+
+            for d in doc_list:
+                input_path = os.path.join(docs_dir, d["id"] + ".md")
+                with open(input_path, "r", encoding="utf-8") as f:
+                    content_html = md_to_html(f.read())
+                sidebar = sidebar_links(doc_list, d["id"])
+                page = docs_page_html(d["title"], sidebar, content_html, d["id"])
+                output_path = os.path.join(out_dir, d["id"] + ".html")
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(page)
+                print("Generated docs/%s.html" % d["id"])
+
+            index_sidebar = sidebar_links(doc_list, None)
+            index_links = "\n".join(
+                '<li><a href="%s.html">%s</a></li>' % (d["id"], d["title"]) for d in doc_list
+            )
+            index_content = "<h1>Documentation</h1><p>MiniClaw documentation, generated from the <code>docs/</code> folder.</p><ul class=\"docs-index-list\">%s</ul>" % index_links
+            index_html = docs_page_html("Documentation", index_sidebar, index_content)
+            with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
+                f.write(index_html)
+            print("Generated docs/index.html")
+
             js_content = "window.DOCS_LIST = " + json.dumps(doc_list, indent=2) + ";\n"
             with open(os.path.join(js_dir, "docs-list.js"), "w", encoding="utf-8") as f:
                 f.write(js_content)
             print("Wrote _site/js/docs-list.js")
         PYEOF
-        
+
         python convert_docs.py
         echo "Documentation conversion completed"
 

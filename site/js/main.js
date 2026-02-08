@@ -1,6 +1,7 @@
 // Theme toggle functionality
 function initThemeToggle() {
     const themeToggle = document.getElementById('theme-toggle');
+    if (!themeToggle) return;
     const themeIcon = themeToggle.querySelector('.theme-icon');
     
     // Check for saved theme preference or respect OS preference
