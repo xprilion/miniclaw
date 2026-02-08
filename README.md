@@ -4,6 +4,8 @@ MiniClaw is a production-ready, secure, and minimal AI agent infrastructure insp
 
 Config and data live in **`~/.miniclaw`**; this repo contains only code.
 
+[![Build](https://github.com/xprilion/miniclaw/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/xprilion/miniclaw/actions/workflows/ci.yml)
+
 ## Key Features
 
 ### 🛡️ Enhanced Security
