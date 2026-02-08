@@ -15,9 +15,25 @@ html {
   transition: background-color 0.2s ease, color 0.15s ease;
 }
 
+/* Smooth theme transitions */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              fill 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
 /* Top loading bar – shown during API calls */
 #miniclaw-loading-bar {
   transition: width 0.3s ease-out, opacity 0.2s ease;
+  background-color: #0ea5e9; /* primary-500 */
+}
+.dark #miniclaw-loading-bar {
+  background-color: #38bdf8; /* primary-400 */
 }
 #miniclaw-loading-bar.miniclaw-loading {
   width: 70% !important;
@@ -31,7 +47,7 @@ html {
 /* Status line (used by showStatus) */
 .status-line {
   min-height: 1.25rem;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.3s ease;
 }
 .status-success {
   color: #059669;
@@ -267,17 +283,99 @@ html {
   color: #f1f5f9;
 }
 
-/* Form element enhancements – smooth focus, no jump */
+/* Form controls – consistent borders, padding, and visual feedback */
 input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
-.form-control:focus {
+
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  border-color: #d1d5db;
+  background-color: #ffffff;
+  color: #111827;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af;
+}
+
+input:hover:not(:disabled):not([readonly]),
+textarea:hover:not(:disabled):not([readonly]),
+select:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #0ea5e9;
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
 }
-.dark .form-control:focus {
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+
+/* Dark mode form controls */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  border-color: #4b5563;
+  background-color: #374151;
+  color: #f3f4f6;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #9ca3af;
+}
+
+.dark input:hover:not(:disabled):not([readonly]),
+.dark textarea:hover:not(:disabled):not([readonly]),
+.dark select:hover:not(:disabled) {
+  border-color: #6b7280;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+/* Textarea min height */
+textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+/* Select appearance – consistent dropdown arrow */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+.dark select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
+/* Checkbox and radio – keep compact, optional alignment */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  height: 1rem;
+  padding: 0;
 }
 
 /* Table enhancements */

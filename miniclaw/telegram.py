@@ -751,31 +751,53 @@ class TelegramService:
                     progress_state = {
                         "stage": "working",
                         "last_sent_at": 0.0,
+                        "initial_ack_sent": False,  # Track if we've sent initial ack
                     }
                     progress_done = threading.Event()
                     typing_done = threading.Event()
 
                     def send_progress(text_message: str, force: bool = False) -> None:
                         now = time.time()
-                        if not force and now - float(progress_state["last_sent_at"]) < progress_interval:
-                            return
-                        progress_state["last_sent_at"] = now
-                        elapsed = int(now - processing_started_at)
-                        try:
-                            self._send_message(
-                                token,
-                                chat_id,
-                                f"MiniClaw update {elapsed}s: {text_message}",
-                            )
-                        except Exception as exc:
-                            self._event_log.add(
-                                "telegram.progress.error",
-                                "Failed to send progress update",
-                                {
-                                    "chat_id": str(chat_id),
-                                    "error": f"{exc.__class__.__name__}: {exc}",
-                                },
-                            )
+                        # Send thinking emoji after 5 seconds if no ack sent yet
+                        if not progress_state["initial_ack_sent"] and now - processing_started_at >= 5:
+                            try:
+                                self._send_message(
+                                    token,
+                                    chat_id,
+                                    "🤔",
+                                )
+                                progress_state["initial_ack_sent"] = True
+                            except Exception as exc:
+                                self._event_log.add(
+                                    "telegram.progress.error",
+                                    "Failed to send thinking emoji",
+                                    {
+                                        "chat_id": str(chat_id),
+                                        "error": f"{exc.__class__.__name__}: {exc}",
+                                    },
+                                )
+                        
+                        # Send status update only after initial ack
+                        if progress_state["initial_ack_sent"]:
+                            if not force and now - float(progress_state["last_sent_at"]) < progress_interval:
+                                return
+                            progress_state["last_sent_at"] = now
+                            elapsed = int(now - processing_started_at)
+                            try:
+                                self._send_message(
+                                    token,
+                                    chat_id,
+                                    f"MiniClaw update {elapsed}s: {text_message}",
+                                )
+                            except Exception as exc:
+                                self._event_log.add(
+                                    "telegram.progress.error",
+                                    "Failed to send progress update",
+                                    {
+                                        "chat_id": str(chat_id),
+                                        "error": f"{exc.__class__.__name__}: {exc}",
+                                    },
+                                )
 
                     def on_status(stage_message: str) -> None:
                         compact = str(stage_message or "").strip() or "working"

@@ -23,9 +23,12 @@ from .events import EventLog, UsageTracker
 from .job_store import JobStore
 from .memory_store import MemoryStore
 from .mcp import MCPServerManager
+from .plugin_manager import create_plugin_manager
 from .plugins import PluginRegistry
+from .security import create_security_managers
 from .skills import SkillRegistry
 from .telegram import TelegramService
+from .whatsapp import WhatsAppService
 from .scheduler import SchedulerService
 from .agent import MiniClawAgent
 from .model_client import ModelProviderClient
@@ -39,6 +42,12 @@ class AppState:
         loaded = self.config_store.get()
         self.event_log.resize(loaded["monitoring"]["max_events"])
 
+        # Initialize security managers
+        self.security = create_security_managers(self.config_store, self.event_log)
+
+        # Initialize enhanced plugin manager
+        self.enhanced_plugins = create_plugin_manager(PLUGINS_DIR, self.config_store, self.event_log)
+
         self.skills = SkillRegistry(SKILLS_DIR, self.event_log)
         self._seed_defaults_once()
         self.plugins = PluginRegistry(PLUGINS_DIR, self.event_log)
@@ -48,7 +57,7 @@ class AppState:
         self.usage = UsageTracker()
         self.memory = MemoryStore(MEMORY_DIR, self.config_store, self.event_log)
         self.mcp = MCPServerManager(self.config_store, self.event_log)
-        self.tools = ToolRunner(self.config_store, self.event_log, self.mcp)
+        self.tools = ToolRunner(self.config_store, self.event_log, self.mcp, self.security)
         self.model_client = ModelProviderClient(self.event_log)
         self.agent = MiniClawAgent(
             config_store=self.config_store,
@@ -59,9 +68,28 @@ class AppState:
             usage_tracker=self.usage,
             memory_store=self.memory,
             tool_runner=self.tools,
+            security_managers=self.security,
         )
         self.telegram = TelegramService(self.config_store, self.event_log, self.agent)
         self.telegram.start_if_enabled()
+        self.whatsapp = WhatsAppService(self.config_store, self.event_log, self.agent)
+        self.whatsapp.start_if_enabled()
+        self.job_store = JobStore(JOBS_DIR, self.event_log)
+        self._migrate_scheduler_jobs_to_store()
+        self.scheduler = SchedulerService(
+            self.config_store,
+            self.job_store,
+            self.event_log,
+            self.agent,
+            self.telegram,
+        )
+        LOGGER.info(
+            "App initialized skills=%d plugins=%d telegram_enabled=%s whatsapp_enabled=%s",
+            len(self.skills.list()),
+            len(self.plugins.list()),
+            bool(loaded["telegram"].get("enabled")),
+            bool(loaded.get("channels", {}).get("whatsapp_wacli", {}).get("enabled", False)),
+        )
         self.job_store = JobStore(JOBS_DIR, self.event_log)
         self._migrate_scheduler_jobs_to_store()
         self.scheduler = SchedulerService(
@@ -207,6 +235,7 @@ class AppState:
         self.plugins.set_enabled(updated["agent"].get("enabled_plugins") or [])
 
         telegram_restarted = self.telegram.restart()
+        whatsapp_restarted = self.whatsapp.restart()
 
         self.event_log.add(
             "runtime.reloaded",
@@ -215,9 +244,10 @@ class AppState:
                 "enabled_plugins": updated["agent"].get("enabled_plugins") or [],
                 "enabled_skills": updated["agent"].get("enabled_skills") or [],
                 "telegram_restarted": telegram_restarted,
+                "whatsapp_restarted": whatsapp_restarted,
             },
         )
-        LOGGER.info("Runtime reloaded from config update telegram_restarted=%s", telegram_restarted)
+        LOGGER.info("Runtime reloaded from config update telegram_restarted=%s whatsapp_restarted=%s", telegram_restarted, whatsapp_restarted)
         return updated
 
     def update_skill_settings(self, enabled_skills: List[str], min_score: int) -> Dict[str, Any]:

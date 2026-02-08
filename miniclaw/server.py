@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os
 import ssl
+import time
 import traceback
 import urllib.parse
 import urllib.request
@@ -104,6 +105,66 @@ def make_handler(state: AppState):
                 },
                 status=500,
             )
+
+        def _handle_streaming_chat(self, state: AppState, message: str, source: str, provider_id: str) -> None:
+            """Handle streaming chat responses with Server-Sent Events."""
+            # Set appropriate headers for SSE
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            
+            # Status tracking variables
+            last_status_time = time.time()
+            last_status_sent = False
+            initial_delay_sent = False
+            
+            def send_sse_event(event: str, data: str) -> None:
+                """Send an SSE event."""
+                try:
+                    message = f"event: {event}\ndata: {data}\n\n"
+                    self.wfile.write(message.encode('utf-8'))
+                    self.wfile.flush()
+                except Exception:
+                    # Client disconnected
+                    pass
+            
+            def status_callback(status_message: str) -> None:
+                """Callback for agent status updates."""
+                nonlocal last_status_time, last_status_sent, initial_delay_sent
+                current_time = time.time()
+                
+                # Send thinking emoji after 5 seconds if no status sent yet
+                if not initial_delay_sent and current_time - last_status_time >= 5:
+                    send_sse_event("thinking", "🤔")
+                    initial_delay_sent = True
+                
+                # Send status update
+                send_sse_event("status", status_message)
+                last_status_sent = True
+            
+            try:
+                # Start the chat with updates
+                result = state.agent.chat_with_updates(
+                    message,
+                    source=source,
+                    meta={
+                        "client_ip": self.client_address[0],
+                        "provider_id": provider_id,
+                    },
+                    status_callback=status_callback,
+                )
+                
+                # Send final result
+                response_data = json.dumps({"ok": True, **result})
+                send_sse_event("result", response_data)
+                send_sse_event("done", "true")
+            except Exception as exc:
+                error_data = json.dumps({"ok": False, "error": str(exc)})
+                send_sse_event("error", error_data)
+                send_sse_event("done", "true")
 
         def _handle_openai_proxy(self) -> None:
             """Handle OpenAI-compatible API requests and proxy them to configured providers."""
@@ -367,18 +428,24 @@ def make_handler(state: AppState):
                     message = str(payload.get("message") or "").strip()
                     source = str(payload.get("source") or "web")
                     provider_id = str(payload.get("provider_id") or "").strip()
+                    stream = bool(payload.get("stream") or False)
                     if not message:
                         self._send_json({"ok": False, "error": "message is required"}, status=400)
                         return
-                    result = state.agent.chat(
-                        message,
-                        source=source,
-                        meta={
-                            "client_ip": self.client_address[0],
-                            "provider_id": provider_id,
-                        },
-                    )
-                    self._send_json({"ok": True, **result})
+                    
+                    if stream:
+                        # Handle streaming response
+                        self._handle_streaming_chat(state, message, source, provider_id)
+                    else:
+                        result = state.agent.chat(
+                            message,
+                            source=source,
+                            meta={
+                                "client_ip": self.client_address[0],
+                                "provider_id": provider_id,
+                            },
+                        )
+                        self._send_json({"ok": True, **result})
                     return
 
                 if path == "/api/memory/save":
@@ -405,9 +472,19 @@ def make_handler(state: AppState):
                     payload = self._read_json()
                     chat_id = str(payload.get("chat_id") or "").strip()
                     message = str(payload.get("message") or "MiniClaw test message")
+                    
+                    # If no chat_id provided, use the bound chat ID
                     if not chat_id:
-                        self._send_json({"ok": False, "error": "chat_id is required"}, status=400)
+                        config = state.config_store.get()
+                        telegram_cfg = config.get("telegram", {})
+                        allowed_chat_ids = telegram_cfg.get("allowed_chat_ids", [])
+                        if allowed_chat_ids:
+                            chat_id = str(allowed_chat_ids[0]).strip()
+                    
+                    if not chat_id:
+                        self._send_json({"ok": False, "error": "chat_id is required or no bound chat available"}, status=400)
                         return
+                        
                     state.telegram.send_test_message(chat_id=chat_id, message=message)
                     self._send_json({"ok": True})
                     return
@@ -415,6 +492,27 @@ def make_handler(state: AppState):
                 if path == "/api/telegram/unbind":
                     result = state.telegram.unbind_chat(actor="api")
                     self._send_json({"ok": True, "result": result, "telegram": state.telegram.status()})
+                    return
+
+                if path == "/api/whatsapp/test":
+                    payload = self._read_json()
+                    contact = str(payload.get("contact") or "").strip()
+                    message = str(payload.get("message") or "MiniClaw test message")
+                    
+                    if not contact:
+                        self._send_json({"ok": False, "error": "contact is required"}, status=400)
+                        return
+                        
+                    try:
+                        state.whatsapp.send_test_message(contact=contact, message=message)
+                        self._send_json({"ok": True})
+                    except Exception as exc:
+                        self._send_json({"ok": False, "error": str(exc)}, status=500)
+                    return
+
+                if path == "/api/whatsapp/restart":
+                    restarted = state.whatsapp.restart()
+                    self._send_json({"ok": True, "restarted": restarted, "whatsapp": state.whatsapp.status()})
                     return
 
                 if path == "/api/telegram/pairing/start":

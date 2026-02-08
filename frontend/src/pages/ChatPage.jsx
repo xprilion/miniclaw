@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'preact/hooks'
-import { api, showStatus } from '../lib/utils'
+import { api, streamApi, showStatus } from '../lib/utils'
 
 const ChatPage = () => {
   const [messages, setMessages] = useState([])
@@ -7,6 +7,7 @@ const ChatPage = () => {
   const [loading, setLoading] = useState(false)
   const [config, setConfig] = useState(null)
   const messagesEndRef = useRef(null)
+  const hasReceivedFinalResultRef = useRef(false)
 
   const loadConfig = async () => {
     const data = await api('/api/config')
@@ -52,37 +53,71 @@ const ChatPage = () => {
       setMessages(prev => [...prev, userMessage])
       setInputMessage('')
       
-      // Send to API
-      const response = await api('/api/chat', {
+      // Create assistant message placeholder
+      const assistantMessageId = Date.now() + 1
+      const assistantMessagePlaceholder = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toISOString()
+      }
+      
+      setMessages(prev => [...prev, assistantMessagePlaceholder])
+      
+      // Stream response from API – use ref so callback never applies result/error twice
+      hasReceivedFinalResultRef.current = false
+
+      const contentFromData = (data) => {
+        if (data == null) return ''
+        if (typeof data === 'string') return data
+        return data.response ?? data.message ?? data.raw ?? (typeof data.error === 'string' ? `Error: ${data.error}` : '')
+      }
+
+      await streamApi('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: inputMessage,
-          source: 'web'
+          source: 'web',
+          stream: true
         })
+      }, (eventType, data) => {
+        if (eventType === 'result') {
+          if (hasReceivedFinalResultRef.current) return
+          hasReceivedFinalResultRef.current = true
+          const responseContent = contentFromData(data) || 'No response'
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: responseContent }
+              : msg
+          ))
+          setLoading(false)
+          return
+        }
+        if (eventType === 'error') {
+          if (hasReceivedFinalResultRef.current) return
+          hasReceivedFinalResultRef.current = true
+          const errMsg = typeof data?.error === 'string' ? data.error : 'Unknown error'
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, role: 'error', content: `Error: ${errMsg}` }
+              : msg
+          ))
+          setLoading(false)
+          return
+        }
+        if (eventType === 'status' || eventType === 'thinking') {
+          if (hasReceivedFinalResultRef.current) return
+          const text = contentFromData(data)
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: text }
+              : msg
+          ))
+        }
       })
-      
-      // Add assistant response to chat
-      const assistantMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: response.result?.content || response.result?.text || 'No response',
-        timestamp: new Date().toISOString()
-      }
-      
-      setMessages(prev => [...prev, assistantMessage])
     } catch (error) {
       showStatus(`Failed to send message: ${error.message}`, 'error')
-      
-      // Add error message to chat
-      const errorMessage = {
-        id: Date.now() + 1,
-        role: 'error',
-        content: `Error: ${error.message}`,
-        timestamp: new Date().toISOString()
-      }
-      
-      setMessages(prev => [...prev, errorMessage])
     } finally {
       setLoading(false)
     }
@@ -142,7 +177,9 @@ const ChatPage = () => {
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                       }`}
                     >
-                      <div class="whitespace-pre-wrap">{message.content}</div>
+                      <div class="whitespace-pre-wrap">
+                        {typeof message.content === 'string' ? message.content : (message.content?.response ?? message.content?.raw ?? String(message.content ?? ''))}
+                      </div>
                       <div 
                         class={`text-xs mt-1 ${
                           message.role === 'user' 

@@ -13,6 +13,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from miniclaw.setup_wizard import run_setup_wizard
+
 
 def parse_json(text: str) -> Any:
     if not text.strip():
@@ -315,6 +317,7 @@ def run_cli() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("health", help="Check /api/health")
+    setup_p = sub.add_parser("setup", help="Run the interactive setup wizard")
     install_p = sub.add_parser("install", help="Create workspace and guide through prerequisites")
     install_p.set_defaults(_install_yes=False)
     onboard_p = sub.add_parser("onboard", help="Initialize config & workspace (alias: install)")
@@ -441,6 +444,8 @@ def run_cli() -> int:
 
     args = parser.parse_args()
     base_url = args.base_url
+    if args.command == "setup":
+        return run_setup_wizard()
     if args.command == "install":
         return run_install(args)
     if args.command == "onboard":

@@ -29,6 +29,7 @@ class MiniClawAgent:
         usage_tracker: UsageTracker,
         memory_store: MemoryStore,
         tool_runner: ToolRunner,
+        security_managers: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._config_store = config_store
         self._event_log = event_log
@@ -38,6 +39,7 @@ class MiniClawAgent:
         self._usage_tracker = usage_tracker
         self._memory_store = memory_store
         self._tool_runner = tool_runner
+        self._security = security_managers or {}
         self._history: deque[Dict[str, Any]] = deque(maxlen=400)
         self._chat_lock = threading.Lock()
         
@@ -168,7 +170,7 @@ class MiniClawAgent:
                         },
                     )
 
-                messages: List[Dict[str, str]] = [{"role": "system", "content": effective_system_prompt}]
+                messages: List[Dict[str, Any]] = [{"role": "system", "content": effective_system_prompt}]
                 for block in memory_blocks:
                     block_name = str(block.get("name") or "memory.md")
                     block_content = str(block.get("content") or "").strip()
@@ -409,6 +411,7 @@ class MiniClawAgent:
                                 tool_name,
                                 tool_args,
                                 trace={"trace_id": trace_id, "source": source, "step": len(tool_runs) + 1},
+                                user_id=source,  # Use source as user identifier for now
                             )
                             tool_runs.append(
                                 {"tool": tool_name, "arguments": tool_args, "result": tool_result},
@@ -460,6 +463,7 @@ class MiniClawAgent:
                         tool_name,
                         tool_args,
                         trace={"trace_id": trace_id, "source": source, "step": len(tool_runs) + 1},
+                        user_id=source,  # Use source as user identifier for now
                     )
                     tool_runs.append(
                         {

@@ -12,6 +12,10 @@ const SetupPage = () => {
     chatId: '',
     message: 'MiniClaw test message'
   })
+  const [whatsappTest, setWhatsappTest] = useState({
+    contact: '',
+    message: 'MiniClaw test message'
+  })
   const [selectedProviderId, setSelectedProviderId] = useState('')
   const [editedProvider, setEditedProvider] = useState(null)
   const [modelsByProvider, setModelsByProvider] = useState({})
@@ -31,7 +35,11 @@ const SetupPage = () => {
     telegramToken: '',
     telegramEnabled: false,
     telegramPairing: false,
-    telegramChatIds: ''
+    telegramChatIds: '',
+    whatsappEnabled: false,
+    whatsappCommand: 'wacli',
+    whatsappContacts: '',
+    whatsappPollInterval: '15'
   })
   
   const [toolsForm, setToolsForm] = useState({
@@ -126,7 +134,11 @@ const SetupPage = () => {
       telegramToken: config.telegram?.bot_token || '',
       telegramEnabled: !!config.telegram?.enabled,
       telegramPairing: !!config.telegram?.pairing_required,
-      telegramChatIds: (config.telegram?.allowed_chat_ids || []).join(', ')
+      telegramChatIds: (config.telegram?.allowed_chat_ids || []).join(', '),
+      whatsappEnabled: !!config.channels?.whatsapp_wacli?.enabled,
+      whatsappCommand: config.channels?.whatsapp_wacli?.wacli_command || 'wacli',
+      whatsappContacts: (config.channels?.whatsapp_wacli?.allowed_contacts || []).join(', '),
+      whatsappPollInterval: config.channels?.whatsapp_wacli?.poll_interval_seconds || '15'
     })
 
     // Tools settings
@@ -228,6 +240,23 @@ const SetupPage = () => {
 
   const handleSaveChannels = async () => {
     try {
+      // Validate Telegram settings if enabled
+      if (channelsForm.telegramEnabled) {
+        if (!channelsForm.telegramToken.trim()) {
+          throw new Error('Telegram bot token is required when Telegram is enabled')
+        }
+      }
+
+      // Validate WhatsApp settings if enabled
+      if (channelsForm.whatsappEnabled) {
+        if (!channelsForm.whatsappCommand.trim()) {
+          throw new Error('wacli command is required when WhatsApp is enabled')
+        }
+        if (parseInt(channelsForm.whatsappPollInterval) < 5) {
+          throw new Error('WhatsApp poll interval must be at least 5 seconds')
+        }
+      }
+
       const updatedConfig = {
         ...config,
         telegram: {
@@ -236,6 +265,16 @@ const SetupPage = () => {
           enabled: channelsForm.telegramEnabled,
           pairing_required: channelsForm.telegramPairing,
           allowed_chat_ids: channelsForm.telegramChatIds.split(',').map(id => id.trim()).filter(id => id)
+        },
+        channels: {
+          ...config.channels,
+          whatsapp_wacli: {
+            ...(config.channels?.whatsapp_wacli || {}),
+            enabled: channelsForm.whatsappEnabled,
+            wacli_command: channelsForm.whatsappCommand,
+            allowed_contacts: channelsForm.whatsappContacts.split(',').map(contact => contact.trim()).filter(contact => contact),
+            poll_interval_seconds: parseInt(channelsForm.whatsappPollInterval) || 15
+          }
         }
       }
 
@@ -333,7 +372,14 @@ const SetupPage = () => {
 
   const handleTestTelegram = async () => {
     try {
-      if (!telegramTest.chatId.trim()) {
+      let chatId = telegramTest.chatId.trim();
+      
+      // If no chat ID provided, use the bound chat ID if available
+      if (!chatId && config?.telegram?.allowed_chat_ids?.[0]) {
+        chatId = config.telegram.allowed_chat_ids[0];
+      }
+      
+      if (!chatId) {
         throw new Error('Chat ID is required')
       }
 
@@ -341,7 +387,7 @@ const SetupPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: telegramTest.chatId.trim(),
+          chat_id: chatId,
           message: telegramTest.message
         })
       })
@@ -377,6 +423,43 @@ const SetupPage = () => {
       await reloadAll()
     } catch (error) {
       showStatus(`Unbind failed: ${error.message}`, 'error')
+    }
+  }
+
+  const handleTestWhatsApp = async () => {
+    try {
+      const contact = whatsappTest.contact.trim();
+      
+      if (!contact) {
+        throw new Error('Contact is required')
+      }
+
+      await api('/api/whatsapp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact: contact,
+          message: whatsappTest.message
+        })
+      })
+
+      showStatus('Test message sent to WhatsApp.', 'success')
+    } catch (error) {
+      showStatus(`WhatsApp test failed: ${error.message}`, 'error')
+    }
+  }
+
+  const handleRestartWhatsApp = async () => {
+    try {
+      await api('/api/whatsapp/restart', {
+        method: 'POST'
+      })
+
+      showStatus('WhatsApp service restarted.', 'success')
+      // Reload config to get updated status
+      await reloadAll()
+    } catch (error) {
+      showStatus(`Restart failed: ${error.message}`, 'error')
     }
   }
 
@@ -506,79 +589,89 @@ const SetupPage = () => {
 
   return (
     <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      {/* Tab Navigation */}
-      <div class="mb-6 flex border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab('core')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'core'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Core
-        </button>
-        <button
-          onClick={() => setActiveTab('providers')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'providers'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Providers
-        </button>
-        <button
-          onClick={() => setActiveTab('channels')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'channels'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Channels
-        </button>
-        <button
-          onClick={() => setActiveTab('tools')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'tools'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Tools & MCP
-        </button>
-        <button
-          onClick={() => setActiveTab('memory')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'memory'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Memory & Plugins
-        </button>
-        <button
-          onClick={() => setActiveTab('raw')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'raw'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Raw Config
-        </button>
-        <button
-          onClick={() => setActiveTab('telegram')}
-          class={`py-2 px-4 text-sm font-medium ${
-            activeTab === 'telegram'
-              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          }`}
-        >
-          Telegram
-        </button>
-      </div>
+       {/* Tab Navigation */}
+       <div class="mb-6 flex border-b border-gray-200 dark:border-gray-700">
+         <button
+           onClick={() => setActiveTab('core')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'core'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Core
+         </button>
+         <button
+           onClick={() => setActiveTab('providers')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'providers'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Providers
+         </button>
+         <button
+           onClick={() => setActiveTab('channels')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'channels'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Channels
+         </button>
+         <button
+           onClick={() => setActiveTab('tools')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'tools'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Tools & MCP
+         </button>
+         <button
+           onClick={() => setActiveTab('memory')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'memory'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Memory & Plugins
+         </button>
+         <button
+           onClick={() => setActiveTab('raw')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'raw'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Raw Config
+         </button>
+         <button
+           onClick={() => setActiveTab('telegram')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'telegram'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           Telegram
+         </button>
+         <button
+           onClick={() => setActiveTab('whatsapp')}
+           class={`py-2 px-4 text-sm font-medium ${
+             activeTab === 'whatsapp'
+               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+           }`}
+         >
+           WhatsApp
+         </button>
+       </div>
 
       {/* Core Panel */}
       {activeTab === 'core' && (
@@ -958,6 +1051,9 @@ const SetupPage = () => {
               {/* Telegram Settings */}
               <div>
                 <h3 class="text-md font-medium text-gray-900 dark:text-white">Telegram</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Enable two-way communication with Telegram users.
+                </p>
                 
                 <div class="mt-4 space-y-4">
                   <div class="flex items-center">
@@ -984,6 +1080,9 @@ const SetupPage = () => {
                       onInput={(e) => setChannelsForm(prev => ({ ...prev, telegramToken: e.target.value }))}
                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Obtain from @BotFather on Telegram.
+                    </p>
                   </div>
                   
                   <div class="flex items-center">
@@ -1009,15 +1108,89 @@ const SetupPage = () => {
                       onInput={(e) => setChannelsForm(prev => ({ ...prev, telegramChatIds: e.target.value }))}
                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Specific chats that can interact with the bot. Leave empty to allow all chats when pairing is disabled.
+                    </p>
                   </div>
                 </div>
               </div>
               
-              {/* Other Channel Options Placeholder */}
+              {/* WhatsApp Settings */}
               <div>
-                <h3 class="text-md font-medium text-gray-900 dark:text-white">Other Channels</h3>
+                <h3 class="text-md font-medium text-gray-900 dark:text-white">WhatsApp (wacli)</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Email, WhatsApp, and other channel integrations coming soon.
+                  Enable two-way communication with WhatsApp contacts using wacli.
+                </p>
+                
+                <div class="mt-4 space-y-4">
+                  <div class="flex items-center">
+                    <input
+                      id="cfgWhatsAppEnabled"
+                      type="checkbox"
+                      checked={channelsForm.whatsappEnabled}
+                      onChange={(e) => setChannelsForm(prev => ({ ...prev, whatsappEnabled: e.target.checked }))}
+                      class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <label for="cfgWhatsAppEnabled" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                      Enable WhatsApp Integration
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label for="cfgWhatsAppCommand" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      wacli Command
+                    </label>
+                    <input
+                      id="cfgWhatsAppCommand"
+                      value={channelsForm.whatsappCommand}
+                      onInput={(e) => setChannelsForm(prev => ({ ...prev, whatsappCommand: e.target.value }))}
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      The command to run wacli. Make sure it's in your PATH.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label for="cfgWhatsAppContacts" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Allowed Contacts (comma-separated)
+                    </label>
+                    <input
+                      id="cfgWhatsAppContacts"
+                      value={channelsForm.whatsappContacts}
+                      onInput={(e) => setChannelsForm(prev => ({ ...prev, whatsappContacts: e.target.value }))}
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Phone numbers that can interact with the bot. Leave empty to allow all contacts.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label for="cfgWhatsAppPollInterval" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Poll Interval (seconds)
+                    </label>
+                    <input
+                      id="cfgWhatsAppPollInterval"
+                      type="number"
+                      min="5"
+                      max="300"
+                      value={channelsForm.whatsappPollInterval}
+                      onInput={(e) => setChannelsForm(prev => ({ ...prev, whatsappPollInterval: e.target.value }))}
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      How often to check for new messages (5-300 seconds).
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Email Settings */}
+              <div>
+                <h3 class="text-md font-medium text-gray-900 dark:text-white">Email</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Email integration coming soon.
                 </p>
               </div>
             </div>
@@ -1365,112 +1538,223 @@ const SetupPage = () => {
         </div>
       )}
 
-      {/* Telegram Panel */}
-      {activeTab === 'telegram' && (
-        <div class="space-y-6">
-          <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
-            <div class="px-4 py-5 sm:p-6">
-              <h2 class="text-lg font-medium text-gray-900 dark:text-white">Telegram Settings</h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Configure Telegram integration.
-              </p>
-              
-              <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Bot Token
-                  </label>
-                  <div class="mt-1 text-sm text-gray-900 dark:text-white">
-                    {config?.telegram?.bot_token ? '••••••••' : 'Not set'}
-                  </div>
-                </div>
-                
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Enabled
-                  </label>
-                  <div class="mt-1 text-sm text-gray-900 dark:text-white">
-                    {config?.telegram?.enabled ? 'Yes' : 'No'}
-                  </div>
-                </div>
-                
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Pairing Required
-                  </label>
-                  <div class="mt-1 text-sm text-gray-900 dark:text-white">
-                    {config?.telegram?.pairing_required ? 'Yes' : 'No'}
-                  </div>
-                </div>
-                
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Allowed Chat IDs
-                  </label>
-                  <div class="mt-1 text-sm text-gray-900 dark:text-white">
-                    {config?.telegram?.allowed_chat_ids?.length || 0} configured
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+       {/* Telegram Panel */}
+       {activeTab === 'telegram' && (
+         <div class="space-y-6">
+           <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
+             <div class="px-4 py-5 sm:p-6">
+               <h2 class="text-lg font-medium text-gray-900 dark:text-white">Telegram Settings</h2>
+               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                 Configure Telegram integration.
+               </p>
+               
+               <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Bot Token
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.telegram?.bot_token ? '••••••••' : 'Not set'}
+                   </div>
+                 </div>
+                 
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Enabled
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.telegram?.enabled ? 'Yes' : 'No'}
+                   </div>
+                 </div>
+                 
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Pairing Required
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.telegram?.pairing_required ? 'Yes' : 'No'}
+                   </div>
+                 </div>
+                 
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Allowed Chat IDs
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.telegram?.allowed_chat_ids?.length || 0} configured
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
 
-          <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
-            <div class="px-4 py-5 sm:p-6">
-              <h2 class="text-lg font-medium text-gray-900 dark:text-white">Telegram Actions</h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Manage your Telegram integration.
-              </p>
-              
-              <div class="mt-6 space-y-4">
-                <div>
-                  <label htmlFor="testChatId" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Test Message
-                  </label>
-                  <div class="mt-2 flex flex-col sm:flex-row gap-2">
-                    <input
-                      id="testChatId"
-                      type="text"
-                      value={telegramTest.chatId}
-                      onInput={(e) => setTelegramTest(prev => ({ ...prev, chatId: e.target.value }))}
-                      placeholder="Chat ID"
-                      class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                    <input
-                      type="text"
-                      value={telegramTest.message}
-                      onInput={(e) => setTelegramTest(prev => ({ ...prev, message: e.target.value }))}
-                      placeholder="Message"
-                      class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                    <button
-                      onClick={handleTestTelegram}
-                      class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                    >
-                      Send Test
-                    </button>
-                  </div>
-                </div>
-                
-                <div class="flex flex-wrap gap-2 pt-4">
-                  <button
-                    onClick={handleRestartTelegram}
-                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                  >
-                    Restart Telegram Service
-                  </button>
-                  <button
-                    onClick={handleUnbindTelegram}
-                    class="inline-flex items-center rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:border-red-600 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
-                  >
-                    Unbind Telegram
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+           <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
+             <div class="px-4 py-5 sm:p-6">
+               <h2 class="text-lg font-medium text-gray-900 dark:text-white">Telegram Actions</h2>
+               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                 Manage your Telegram integration.
+               </p>
+               
+               <div class="mt-6 space-y-4">
+                 <div>
+                   <label htmlFor="testChatId" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Test Message
+                   </label>
+                   <div class="mt-2 flex flex-col sm:flex-row gap-2">
+                     <input
+                       id="testChatId"
+                       type="text"
+                       value={telegramTest.chatId}
+                       onInput={(e) => setTelegramTest(prev => ({ ...prev, chatId: e.target.value }))}
+                       placeholder={config?.telegram?.allowed_chat_ids?.[0] || "Chat ID"}
+                       class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                     />
+                     <input
+                       type="text"
+                       value={telegramTest.message}
+                       onInput={(e) => setTelegramTest(prev => ({ ...prev, message: e.target.value }))}
+                       placeholder="Message"
+                       class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                     />
+                     <button
+                       onClick={handleTestTelegram}
+                       class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                     >
+                       Send Test
+                     </button>
+                   </div>
+                   {config?.telegram?.allowed_chat_ids?.[0] && (
+                     <div class="mt-2">
+                       <button
+                         onClick={() => setTelegramTest(prev => ({ ...prev, chatId: config.telegram.allowed_chat_ids[0] }))}
+                         class="text-sm text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+                       >
+                         Use bound chat ID ({config.telegram.allowed_chat_ids[0]})
+                       </button>
+                     </div>
+                   )}
+                 </div>
+                 
+                 <div class="flex flex-wrap gap-2 pt-4">
+                   <button
+                     onClick={handleRestartTelegram}
+                     class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                   >
+                     Restart Telegram Service
+                   </button>
+                   <button
+                     onClick={handleUnbindTelegram}
+                     class="inline-flex items-center rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:border-red-600 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+                   >
+                     Unbind Telegram
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+       )}
+
+       {/* WhatsApp Panel */}
+       {activeTab === 'whatsapp' && (
+         <div class="space-y-6">
+           <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
+             <div class="px-4 py-5 sm:p-6">
+               <h2 class="text-lg font-medium text-gray-900 dark:text-white">WhatsApp Settings</h2>
+               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                 Configure WhatsApp integration using wacli.
+               </p>
+               
+               <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Enabled
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.channels?.whatsapp_wacli?.enabled ? 'Yes' : 'No'}
+                   </div>
+                 </div>
+                 
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     wacli Command
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.channels?.whatsapp_wacli?.wacli_command || 'wacli'}
+                   </div>
+                 </div>
+                 
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Poll Interval
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.channels?.whatsapp_wacli?.poll_interval_seconds || 15} seconds
+                   </div>
+                 </div>
+                 
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Allowed Contacts
+                   </label>
+                   <div class="mt-1 text-sm text-gray-900 dark:text-white">
+                     {config?.channels?.whatsapp_wacli?.allowed_contacts?.length || 0} configured
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
+
+           <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
+             <div class="px-4 py-5 sm:p-6">
+               <h2 class="text-lg font-medium text-gray-900 dark:text-white">WhatsApp Actions</h2>
+               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                 Manage your WhatsApp integration.
+               </p>
+               
+               <div class="mt-6 space-y-4">
+                 <div>
+                   <label htmlFor="testWhatsAppContact" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                     Test Message
+                   </label>
+                   <div class="mt-2 flex flex-col sm:flex-row gap-2">
+                     <input
+                       id="testWhatsAppContact"
+                       type="text"
+                       value={whatsappTest?.contact || ''}
+                       onInput={(e) => setWhatsappTest(prev => ({ ...prev, contact: e.target.value }))}
+                       placeholder="Contact (phone number)"
+                       class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                     />
+                     <input
+                       type="text"
+                       value={whatsappTest?.message || 'MiniClaw test message'}
+                       onInput={(e) => setWhatsappTest(prev => ({ ...prev, message: e.target.value }))}
+                       placeholder="Message"
+                       class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                     />
+                     <button
+                       onClick={handleTestWhatsApp}
+                       class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                     >
+                       Send Test
+                     </button>
+                   </div>
+                 </div>
+                 
+                 <div class="flex flex-wrap gap-2 pt-4">
+                   <button
+                     onClick={handleRestartWhatsApp}
+                     class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                   >
+                     Restart WhatsApp Service
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+       )}
     </main>
   )
 }

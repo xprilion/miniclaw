@@ -5,7 +5,9 @@ import os
 from http.server import ThreadingHTTPServer
 
 from .app_state import AppState
+from .security import create_security_managers
 from .server import make_handler
+from .setup_wizard import run_setup_wizard
 from .util import LOGGER, setup_logging
 
 
@@ -47,4 +49,4 @@ def run() -> None:
         LOGGER.info("MiniClaw server stopped")
 
 
-__all__ = ["run", "AppState", "make_handler"]
+__all__ = ["run", "AppState", "make_handler", "create_security_managers", "run_setup_wizard"]

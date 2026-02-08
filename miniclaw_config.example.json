@@ -1,0 +1,126 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+  "providers": {
+    "default_provider_id": "ollama_default",
+    "items": [
+      {
+        "id": "ollama_default",
+        "name": "Ollama Default",
+        "type": "ollama",
+        "enabled": true,
+        "base_url": "http://localhost:11434",
+        "api_key": "",
+        "model": "qwen3",
+        "temperature": 0.2,
+        "timeout_seconds": 300,
+        "verify_tls": true,
+        "system_prompt_override": ""
+      },
+      {
+        "id": "openai_default",
+        "name": "OpenAI API",
+        "type": "openai_compatible",
+        "enabled": false,
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "your-api-key-here",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "timeout_seconds": 300,
+        "verify_tls": true,
+        "system_prompt_override": ""
+      },
+      {
+        "id": "openrouter_default",
+        "name": "OpenRouter",
+        "type": "openrouter",
+        "enabled": false,
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key": "your-api-key-here",
+        "model": "openai/gpt-4o-mini",
+        "temperature": 0.2,
+        "timeout_seconds": 300,
+        "verify_tls": true,
+        "system_prompt_override": ""
+      }
+    ]
+  },
+  "telegram": {
+    "enabled": false,
+    "bot_token": "",
+    "allowed_chat_ids": [],
+    "binding_mode": "single",
+    "poll_interval_seconds": 2,
+    "pairing_required": true,
+    "pairing_code_ttl_seconds": 600,
+    "progress_update_seconds": 12
+  },
+  "channels": {
+    "active_channel": "telegram",
+    "telegram": {},
+    "whatsapp_wacli": {
+      "enabled": false,
+      "wacli_command": "wacli",
+      "session": "",
+      "allowed_contacts": [],
+      "poll_interval_seconds": 15
+    },
+    "email": {
+      "enabled": false,
+      "imap_host": "",
+      "smtp_host": "",
+      "username": "",
+      "password": "",
+      "from_address": "",
+      "allowed_senders": [],
+      "poll_interval_seconds": 60
+    }
+  },
+  "agent": {
+    "name": "MiniClaw",
+    "system_prompt_default": "You are MiniClaw, optimized for smaller models. Be explicit about what actions you took, what data you used, and why.",
+    "max_history_messages": 12,
+    "enabled_skills": [],
+    "enabled_plugins": [
+      "trace_tag"
+    ],
+    "skill_match_min_score": 2,
+    "seeded_default_skills": false
+  },
+  "memory": {
+    "enabled": true,
+    "files": [
+      "soul.md",
+      "user.md",
+      "project.md",
+      "journal.md"
+    ],
+    "max_chars_per_file": 3000
+  },
+  "tools": {
+    "enabled": true,
+    "max_steps": 4,
+    "allow_shell": true,
+    "allow_filesystem": true,
+    "allow_network": true,
+    "allow_browser": true,
+    "allow_mcp": true,
+    "command_timeout_seconds": 25,
+    "output_char_limit": 12000,
+    "working_directory": "~/.miniclaw/workspace"
+  },
+  "mcp": {
+    "enabled": true,
+    "servers": []
+  },
+  "monitoring": {
+    "max_events": 700
+  },
+  "scheduler": {
+    "enabled": true,
+    "jobs": [],
+    "seeded_default_jobs": false
+  }
+}
