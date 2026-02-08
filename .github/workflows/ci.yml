@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -81,13 +86,113 @@ jobs:
 
   deploy-docs:
     runs-on: ubuntu-latest
-    needs: [test, build-frontend, security-check]
     if: github.ref == 'refs/heads/main'
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Deploy documentation
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
       run: |
-        echo "Deploying documentation..."
-        # Add documentation deployment steps here
+        npm install -g marked
+        pip install markdown
+
+    - name: Prepare site structure
+      run: |
+        # Create output directory
+        mkdir -p _site
+        
+        # Copy static site files if site folder exists
+        if [ -d "site" ]; then
+          cp -r site/. _site/
+        else
+          mkdir -p _site
+        fi
+        
+        # Create docs directory in output
+        mkdir -p _site/docs
+
+    - name: Convert documentation to HTML
+      run: |
+        echo "Converting documentation files..."
+        
+        # Create a temporary Python script for conversion
+        cat > convert_docs.py << 'EOF'
+        import os
+        import markdown
+        import sys
+        
+        def convert_markdown_to_html(input_file, output_file):
+            with open(input_file, 'r', encoding='utf-8') as f:
+                md_content = f.read()
+            
+            # Convert markdown to HTML
+            html_content = markdown.markdown(md_content, extensions=['fenced_code', 'tables'])
+            
+            # Wrap in basic HTML structure
+            full_html = f"""<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Documentation</title>
+        </head>
+        <body>
+            <div class="doc-content">
+                {html_content}
+            </div>
+        </body>
+        </html>"""
+            
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(full_html)
+        
+        if __name__ == "__main__":
+            if len(sys.argv) != 3:
+                print("Usage: python convert_docs.py <input.md> <output.html>")
+                sys.exit(1)
+                
+            input_file = sys.argv[1]
+            output_file = sys.argv[2]
+            convert_markdown_to_html(input_file, output_file)
+            print(f"Converted {input_file} to {output_file}")
+        EOF
+        
+        # Process each documentation file
+        if [ -d "docs" ]; then
+          for file in docs/*.md; do
+              if [ -f "$file" ]; then
+                  filename=$(basename "$file" .md)
+                  echo "Processing $filename.md -> $filename.html"
+                  python convert_docs.py "$file" "_site/docs/${filename}.html"
+              fi
+          done
+        fi
+        
+        echo "Documentation conversion completed"
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: ./_site
+
+  deploy-pages:
+    runs-on: ubuntu-latest
+    needs: deploy-docs
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
