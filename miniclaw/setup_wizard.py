@@ -2,12 +2,10 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from .constants import CONFIG_PATH, WORKSPACE_DIR
 from .util import LOGGER
@@ -15,37 +13,37 @@ from .util import LOGGER
 
 class SetupWizard:
     """Guided setup wizard for MiniClaw."""
-    
+
     def __init__(self) -> None:
         self.workspace = WORKSPACE_DIR
         self.config_path = CONFIG_PATH
-        
+
     def run(self) -> bool:
         """Run the setup wizard and return True if successful."""
         try:
             print("=== MiniClaw Setup Wizard ===\n")
-            
+
             # Check prerequisites
             if not self._check_prerequisites():
                 return False
-                
+
             # Create workspace
             self._create_workspace()
-            
+
             # Configure model provider
             provider_config = self._configure_model_provider()
             if not provider_config:
                 return False
-                
+
             # Configure Telegram (optional)
             telegram_config = self._configure_telegram()
-            
+
             # Create default config
             self._create_default_config(provider_config, telegram_config)
-            
+
             # Create default files
             self._create_default_files()
-            
+
             print("\n✅ Setup completed successfully!")
             print(f"📁 Workspace: {self.workspace}")
             print(f"⚙️  Config: {self.config_path}")
@@ -53,39 +51,39 @@ class SetupWizard:
             print("   1. Start the server: miniclaw gateway")
             print("   2. Open http://127.0.0.1:8787 in your browser")
             print("   3. Or chat via CLI: miniclaw agent -m \"Hello!\"")
-            
+
             return True
-            
+
         except Exception as e:
             print(f"\n❌ Setup failed: {e}")
             LOGGER.exception("Setup wizard failed")
             return False
-    
+
     def _check_prerequisites(self) -> bool:
         """Check system prerequisites."""
         print("🔍 Checking prerequisites...")
-        
+
         # Check Python version
         if sys.version_info < (3, 9):
             print("❌ Python 3.9 or higher is required")
             return False
         print(f"✅ Python {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}")
-        
+
         # Check for pip or uv
         has_uv = shutil.which("uv") is not None
         has_pip = shutil.which("pip") is not None
-        
+
         if not has_uv and not has_pip:
             print("❌ Either 'uv' or 'pip' is required for package management")
             return False
         print(f"✅ Package manager: {'uv' if has_uv else 'pip'}")
-        
+
         return True
-    
+
     def _create_workspace(self) -> None:
         """Create the workspace directory structure."""
         print(f"\n📁 Creating workspace at {self.workspace}")
-        
+
         # Create directories
         directories = [
             self.workspace,
@@ -94,16 +92,16 @@ class SetupWizard:
             self.workspace / "plugins",
             self.workspace / "jobs"
         ]
-        
+
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
             print(f"   ✅ Created {directory}")
-    
+
     def _configure_model_provider(self) -> Optional[Dict[str, Any]]:
         """Configure model provider through interactive prompts."""
         print("\n🤖 Configure AI Model Provider")
         print("   MiniClaw needs an AI model provider to work.")
-        
+
         providers = [
             {
                 "id": "ollama_local",
@@ -128,13 +126,13 @@ class SetupWizard:
                 "needs_install": False
             }
         ]
-        
+
         print("\nAvailable providers:")
         for i, provider in enumerate(providers, 1):
             print(f"   {i}. {provider['name']} - {provider['description']}")
             if provider.get("needs_install"):
                 print(f"      ⚠️  {provider['install_instructions']}")
-        
+
         while True:
             try:
                 choice = input(f"\nSelect provider (1-{len(providers)}): ").strip()
@@ -145,7 +143,7 @@ class SetupWizard:
                 print("Invalid choice. Please try again.")
             except (ValueError, IndexError):
                 print("Invalid choice. Please try again.")
-        
+
         # Configure specific provider settings
         if selected["id"] == "ollama_local":
             return self._configure_ollama()
@@ -153,13 +151,13 @@ class SetupWizard:
             return self._configure_openai()
         elif selected["id"] == "openrouter":
             return self._configure_openrouter()
-        
+
         return None
-    
+
     def _configure_ollama(self) -> Optional[Dict[str, Any]]:
         """Configure Ollama provider."""
         print("\n🔧 Configuring Ollama...")
-        
+
         # Check if Ollama is installed and running
         try:
             result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
@@ -173,7 +171,7 @@ class SetupWizard:
             print("⚠️  Ollama not found")
             print("   Please install Ollama from https://ollama.com")
             input("   Press Enter after installing Ollama...")
-        
+
         # Pull a default model
         default_model = "qwen3"
         print(f"\n📥 Pulling default model: {default_model}")
@@ -182,7 +180,7 @@ class SetupWizard:
             print("✅ Model pulled successfully")
         except subprocess.CalledProcessError:
             print("⚠️  Failed to pull model. You can do this later with: ollama pull qwen3")
-        
+
         return {
             "id": "ollama_default",
             "name": "Ollama Default",
@@ -196,18 +194,18 @@ class SetupWizard:
             "verify_tls": True,
             "system_prompt_override": "",
         }
-    
+
     def _configure_openai(self) -> Optional[Dict[str, Any]]:
         """Configure OpenAI provider."""
         print("\n🔑 Configuring OpenAI API...")
-        
+
         api_key = input("Enter your OpenAI API key: ").strip()
         if not api_key:
             print("❌ API key is required")
             return None
-            
+
         model = input("Enter model name (default: gpt-4o-mini): ").strip() or "gpt-4o-mini"
-        
+
         return {
             "id": "openai_default",
             "name": "OpenAI Default",
@@ -221,18 +219,18 @@ class SetupWizard:
             "verify_tls": True,
             "system_prompt_override": "",
         }
-    
+
     def _configure_openrouter(self) -> Optional[Dict[str, Any]]:
         """Configure OpenRouter provider."""
         print("\n🔑 Configuring OpenRouter...")
-        
+
         api_key = input("Enter your OpenRouter API key: ").strip()
         if not api_key:
             print("❌ API key is required")
             return None
-            
+
         model = input("Enter model name (default: openai/gpt-4o-mini): ").strip() or "openai/gpt-4o-mini"
-        
+
         return {
             "id": "openrouter_default",
             "name": "OpenRouter Default",
@@ -246,22 +244,22 @@ class SetupWizard:
             "verify_tls": True,
             "system_prompt_override": "",
         }
-    
+
     def _configure_telegram(self) -> Optional[Dict[str, Any]]:
         """Configure Telegram integration (optional)."""
         print("\n📱 Configure Telegram Bot (optional)")
         print("   You can create a Telegram bot to interact with MiniClaw.")
         print("   Visit https://core.telegram.org/bots#botfather to create a bot.")
-        
+
         configure = input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
         if configure not in ["y", "yes"]:
             return None
-        
+
         bot_token = input("Enter your Telegram bot token: ").strip()
         if not bot_token:
             print("   Skipping Telegram configuration")
             return None
-        
+
         return {
             "enabled": True,
             "bot_token": bot_token,
@@ -272,14 +270,15 @@ class SetupWizard:
             "pairing_code_ttl_seconds": 600,
             "progress_update_seconds": 12,
         }
-    
-    def _create_default_config(self, provider_config: Dict[str, Any], telegram_config: Optional[Dict[str, Any]]) -> None:
+
+    def _create_default_config(self, provider_config: Dict[str, Any],
+                              telegram_config: Optional[Dict[str, Any]]) -> None:
         """Create the default configuration file."""
         print(f"\n⚙️  Creating configuration at {self.config_path}")
-        
+
         # Ensure parent directory exists
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         config = {
             "server": {
                 "host": "127.0.0.1",
@@ -362,15 +361,15 @@ class SetupWizard:
                 "seeded_default_jobs": False,
             },
         }
-        
+
         # Write config file
         self.config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print("   ✅ Configuration created")
-    
+
     def _create_default_files(self) -> None:
         """Create default memory and skill files."""
         print("\n📄 Creating default files...")
-        
+
         # Memory files
         memory_dir = self.workspace / "memory"
         memory_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
@@ -396,13 +395,13 @@ class SetupWizard:
                 "Append short timestamped summaries of important interactions and outcomes.\n"
             ),
         }
-        
+
         for filename, content in memory_files.items():
             filepath = memory_dir / filename
             if not filepath.exists():
                 filepath.write_text(content, encoding="utf-8")
                 print(f"   ✅ Created {filename}")
-        
+
         # Skill files
         skills_dir = self.workspace / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
@@ -427,7 +426,7 @@ class SetupWizard:
                 "For execution planning, return phased steps with dependencies, risks, and success checks.\n"
             ),
         }
-        
+
         for filename, content in skill_files.items():
             filepath = skills_dir / filename
             if not filepath.exists():

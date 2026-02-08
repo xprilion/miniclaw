@@ -18,6 +18,7 @@ from .skills import SkillRegistry
 from .tools import ToolRunner
 from .util import LOGGER, truncate_text, utc_now
 
+
 class MiniClawAgent:
     def __init__(
         self,
@@ -42,7 +43,7 @@ class MiniClawAgent:
         self._security = security_managers or {}
         self._history: deque[Dict[str, Any]] = deque(maxlen=400)
         self._chat_lock = threading.Lock()
-        
+
         # Set the skill registry reference in the advanced file selection plugin if it exists
         try:
             # Try to set the skill registry in the advanced_file_selection plugin
@@ -143,7 +144,8 @@ class MiniClawAgent:
                     if status_text:
                         report_status(status_text)
 
-                mark_stage("analyze", "Score query against enabled skills and decide context inputs.", status_text="analyze")
+                mark_stage("analyze", "Score query against enabled skills and decide context inputs.",
+                           status_text="analyze")
                 selected_skills = self._skill_registry.applicable_for_query(
                     agent_cfg.get("enabled_skills", []),
                     content,
@@ -251,7 +253,9 @@ class MiniClawAgent:
                             "memory_blocks_used": [item.get("name") for item in memory_blocks],
                             "history_messages_used": len(history_items),
                             "plugin_messages_added": len(plugin_messages),
-                            "enabled_plugins": [item["id"] for item in self._plugin_registry.list() if item.get("enabled")],
+                            "enabled_plugins": [
+                                item["id"] for item in self._plugin_registry.list() if item.get("enabled")
+                            ],
                         },
                     },
                 )
@@ -295,7 +299,8 @@ class MiniClawAgent:
 
                 while True:
                     model_calls += 1
-                    mark_stage("model_call", "Send prompt to model for completion.", status_text=f"model {provider_model}")
+                    mark_stage("model_call", "Send prompt to model for completion.",
+                               status_text=f"model {provider_model}")
                     raw_response = self._model_client.chat(
                         provider=provider, messages=messages, tools=ollama_tools
                     )
@@ -326,7 +331,8 @@ class MiniClawAgent:
                                     "role": "system",
                                     "content": (
                                         "Your previous response was empty. You must reply with exactly one of: "
-                                        "(1) A single JSON object for a tool call: {\"tool\":\"tool_name\",\"arguments\":{...}}, or "
+                                        "(1) A single JSON object for a tool call: "
+                                        "{\"tool\":\"tool_name\",\"arguments\":{...}}, or "
                                         "(2) Plain text for your final answer. No other format."
                                     ),
                                 }
@@ -406,7 +412,8 @@ class MiniClawAgent:
                                     tool_args = {}
                             else:
                                 tool_args = raw_args if isinstance(raw_args, dict) else {}
-                            mark_stage("tool_call", "Execute a requested tool before final response.", status_text=f"tool {tool_name}")
+                            mark_stage("tool_call", "Execute a requested tool before final response.",
+                                       status_text=f"tool {tool_name}")
                             tool_result = self._tool_runner.run(
                                 tool_name,
                                 tool_args,
@@ -457,8 +464,10 @@ class MiniClawAgent:
                         break
 
                     tool_name = str(parsed_tool_call.get("tool") or "")
-                    tool_args = parsed_tool_call.get("arguments") if isinstance(parsed_tool_call.get("arguments"), dict) else {}
-                    mark_stage("tool_call", "Execute a requested tool before final response.", status_text=f"tool {tool_name}")
+                    tool_args = parsed_tool_call.get("arguments") if isinstance(parsed_tool_call.get("arguments"),
+                                                                                dict) else {}
+                    mark_stage("tool_call", "Execute a requested tool before final response.",
+                               status_text=f"tool {tool_name}")
                     tool_result = self._tool_runner.run(
                         tool_name,
                         tool_args,
@@ -572,7 +581,8 @@ class MiniClawAgent:
                     },
                 )
                 LOGGER.info(
-                    "Agent response source=%s trace_id=%s provider=%s model=%s response_chars=%d model_calls=%d tool_runs=%d",
+                    "Agent response source=%s trace_id=%s provider=%s model=%s "
+                    "response_chars=%d model_calls=%d tool_runs=%d",
                     source,
                     trace_id,
                     used_provider_id,

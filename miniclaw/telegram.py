@@ -19,6 +19,7 @@ from .events import EventLog
 from .agent import MiniClawAgent
 from .util import LOGGER, utc_now
 
+
 class TelegramAPIError(RuntimeError):
     def __init__(self, method: str, status: int, detail: str) -> None:
         super().__init__(f"Telegram API error method={method} status={status}: {detail}")
@@ -425,7 +426,8 @@ class TelegramService:
                                 "resolved_by": None,
                             }
                             self._pairing_requests[request_id] = request_payload
-                            reply_text = "Pairing request received. Ask an admin to confirm it in MiniClaw Setup or CLI."
+                            reply_text = ("Pairing request received. Ask an admin to confirm it "
+                                         "in MiniClaw Setup or CLI.")
                             event_type = "telegram.pairing.requested"
                             event_message = "Received Telegram pairing request"
                             event_details = {
@@ -776,7 +778,7 @@ class TelegramService:
                                         "error": f"{exc.__class__.__name__}: {exc}",
                                     },
                                 )
-                        
+
                         # Send status update only after initial ack
                         if progress_state["initial_ack_sent"]:
                             if not force and now - float(progress_state["last_sent_at"]) < progress_interval:
@@ -899,7 +901,8 @@ class TelegramService:
                         },
                     )
                     LOGGER.warning(
-                        "Telegram getUpdates conflict (HTTP 409). Another poller or webhook may be active. backoff=%ss streak=%s",
+                        "Telegram getUpdates conflict (HTTP 409). Another poller or webhook may be active. "
+                        "backoff=%ss streak=%s",
                         backoff_seconds,
                         conflict_streak,
                     )

@@ -9,17 +9,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .config import ConfigStore
-from .constants import BASE_DIR
 from .events import EventLog
 from .mcp import MCPServerManager
 from .parser import HTMLTextExtractor
 from .security import SandboxManager
 from .util import extract_json_object, truncate_text
 
+
 class ToolRunner:
     """Agent tools: shell, filesystem, fetch, browser, MCP."""
 
-    def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager, security_managers: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager,
+                security_managers: Optional[Dict[str, Any]] = None) -> None:
         self._config_store = config_store
         self._event_log = event_log
         self._mcp = mcp
@@ -126,9 +127,13 @@ class ToolRunner:
 
     def _tool_instruction_text(self, tool_defs: List[Dict[str, Any]], max_steps: int) -> str:
         lines = [
-            "You can use tools to act on the system before answering. Prefer using them when the user asks to run something, read/write files, or fetch web content.",
+            "You can use tools to act on the system before answering. Prefer using them when the user asks to run "
+            "something, read/write files, or fetch web content.",
             f"Tool loop budget: {max_steps} calls max for this request.",
-            "Use run_command to run shell commands (e.g. list processes, check disk, run scripts). Use list_dir and read_file for filesystem inspection; use write_file to create or overwrite files. Use fetch_url or browser_extract to retrieve web pages. Use mcp_* tools when you need a configured MCP server.",
+            "Use run_command to run shell commands (e.g. list processes, check disk, run scripts). "
+            "Use list_dir and read_file for filesystem inspection; use write_file to create or overwrite files. "
+            "Use fetch_url or browser_extract to retrieve web pages. Use mcp_* tools when you need a configured "
+            "MCP server.",
             "To invoke a tool, respond with exactly one JSON object, no other text:",
             '{"tool":"tool_name","arguments":{"key":"value"}}',
             "When no tool is needed, reply directly to the user.",
@@ -145,7 +150,8 @@ class ToolRunner:
         return self._tool_instruction_text(tools, max_steps=max_steps)
 
     def _args_schema_to_parameters(self, args_schema: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert our args_schema (e.g. {'command': 'string', 'cwd': 'string(optional)'}) to Ollama/OpenAI parameters (JSON Schema)."""
+        """Convert our args_schema (e.g. {'command': 'string', 'cwd': 'string(optional)'}) to Ollama/OpenAI "
+        "parameters (JSON Schema)."""
         if not args_schema or not isinstance(args_schema, dict):
             return {"type": "object", "properties": {}, "required": []}
         properties: Dict[str, Dict[str, str]] = {}
@@ -201,15 +207,15 @@ class ToolRunner:
         command = str(arguments.get("command") or "").strip()
         if not command:
             raise ValueError("command is required")
-            
+
         # Sanitize and validate command
         command = self._sandbox.sanitize_input(command, max_length=2000)
         cwd = self._resolve_workdir(str(arguments.get("cwd") or ""))
-        
+
         # Validate command safety
         if not self._sandbox.validate_command(command, str(cwd)):
             raise PermissionError(f"Command failed security validation: {command}")
-            
+
         cfg = self._cfg()
         timeout = int(arguments.get("timeout_seconds") or cfg.get("command_timeout_seconds") or 25)
         timeout = max(1, min(timeout, 300))
@@ -236,11 +242,11 @@ class ToolRunner:
         if not self._allow("allow_filesystem", True):
             raise PermissionError("list_dir is disabled in tools config")
         path = self._resolve_workdir(str(arguments.get("path") or ""))
-        
+
         # Validate path safety
         if not self._sandbox.validate_file_path(str(path), "read"):
             raise PermissionError(f"Path access denied: {path}")
-            
+
         if not path.exists():
             raise FileNotFoundError(f"Path not found: {path}")
         if not path.is_dir():
@@ -274,15 +280,15 @@ class ToolRunner:
         raw_path = str(arguments.get("path") or "").strip()
         if not raw_path:
             raise ValueError("path is required")
-            
+
         # Sanitize and validate path
         raw_path = self._sandbox.sanitize_input(raw_path, max_length=1000)
         path = self._resolve_workdir(raw_path)
-        
+
         # Validate path safety
         if not self._sandbox.validate_file_path(str(path), "read"):
             raise PermissionError(f"File access denied: {path}")
-            
+
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
         if not path.is_file():
@@ -298,17 +304,17 @@ class ToolRunner:
         if not raw_path:
             raise ValueError("path is required")
         content = str(arguments.get("content") or "")
-        
+
         # Sanitize inputs
         raw_path = self._sandbox.sanitize_input(raw_path, max_length=1000)
         content = self._sandbox.sanitize_input(content, max_length=50000)
-        
+
         path = self._resolve_workdir(raw_path)
-        
+
         # Validate path safety for write operations
         if not self._sandbox.validate_file_path(str(path), "write"):
             raise PermissionError(f"File write denied: {path}")
-            
+
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return {"path": str(path), "chars_written": len(content)}
@@ -319,23 +325,23 @@ class ToolRunner:
         url = str(arguments.get("url") or "").strip()
         if not url:
             raise ValueError("url is required")
-            
+
         # Sanitize URL
         url = self._sandbox.sanitize_input(url, max_length=2000)
-        
+
         # Basic URL validation
         if not url.startswith(("http://", "https://")):
             raise ValueError("URL must start with http:// or https://")
-            
+
         # Check for potentially dangerous URLs
         lower_url = url.lower()
         if any(blocked in lower_url for blocked in ["localhost", "127.0.0.1", "[::1]", "file://"]):
             raise PermissionError("Access to localhost URLs is prohibited")
-            
+
         # Ensure timeout is an integer
         timeout_float = float(arguments.get("timeout_seconds") or 20)
         timeout = int(max(2, min(timeout_float, 120)))
-        
+
         # Log the start of the fetch operation
         self._event_log.add(
             "tool.fetch_url.start",
@@ -345,7 +351,7 @@ class ToolRunner:
                 "timeout": timeout,
             },
         )
-        
+
         try:
             # Try to use requests library first if available, as it handles SSL better
             try:
@@ -355,14 +361,14 @@ class ToolRunner:
                     "Using requests library for URL fetch",
                     {"url": url},
                 )
-                
+
                 response = requests.get(
                     url,
                     headers={"User-Agent": "MiniClaw/0.1", "Accept": "*/*"},
                     timeout=timeout,
                     verify=True  # Enable SSL verification
                 )
-                
+
                 output_limit = int(self._cfg().get("output_char_limit") or 12000)
                 return {
                     "url": url,
@@ -378,13 +384,13 @@ class ToolRunner:
                     "Using urllib library for URL fetch",
                     {"url": url},
                 )
-                
+
                 request = urllib.request.Request(
                     url=url,
                     method="GET",
                     headers={"User-Agent": "MiniClaw/0.1", "Accept": "*/*"},
                 )
-                
+
                 # Handle SSL context for HTTPS URLs
                 ssl_context = None
                 if url.startswith("https://"):
@@ -403,7 +409,7 @@ class ToolRunner:
                         )
                         # Proceed without SSL context if creation fails
                         ssl_context = None
-                
+
                 # Convert timeout to int to avoid float issues
                 int_timeout = int(timeout)
                 with urllib.request.urlopen(request, timeout=int_timeout, context=ssl_context) as response:
@@ -452,18 +458,19 @@ class ToolRunner:
             "link_count": len(links),
         }
 
-    def run(self, tool_name: str, arguments: Optional[Dict[str, Any]], trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
+    def run(self, tool_name: str, arguments: Optional[Dict[str, Any]],
+           trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
         name = str(tool_name or "").strip()
         args = arguments if isinstance(arguments, dict) else {}
         trace_details = trace if isinstance(trace, dict) else {}
         started = time.time()
-        
+
         # Check permissions before executing
         if hasattr(self, '_security') and self._security.get("permissions"):
             permissions_manager = self._security["permissions"]
             if not permissions_manager.check_tool_permission(name, user_id=user_id, context=args):
                 raise PermissionError(f"Permission denied for tool: {name}")
-        
+
         # Apply rate limiting
         if hasattr(self, '_security') and self._security.get("rate_limiter"):
             rate_limiter = self._security["rate_limiter"]
@@ -471,7 +478,7 @@ class ToolRunner:
             ip_address = trace_details.get("client_ip", "") if trace_details else ""
             if not rate_limiter.check_rate_limit(user_id=user_id, ip_address=ip_address):
                 raise PermissionError("Rate limit exceeded")
-        
+
         self._event_log.add(
             "tool.run.start",
             "Tool execution started",
@@ -514,7 +521,7 @@ class ToolRunner:
                 "result": result,
                 "duration_seconds": round(time.time() - started, 3),
             }
-            
+
             # Apply content filtering to results
             if hasattr(self, '_security') and self._security.get("content_filter"):
                 content_filter = self._security["content_filter"]
@@ -523,7 +530,7 @@ class ToolRunner:
                     for key, value in result.items():
                         if isinstance(value, str) and len(value) > 0:
                             result[key] = content_filter.filter_output(value, user_id=user_id)
-            
+
             self._event_log.add(
                 "tool.run.success",
                 "Tool execution succeeded",

@@ -1,22 +1,22 @@
 """HTTP server and request routing."""
 from __future__ import annotations
 
+
 import json
 import mimetypes
-import os
 import ssl
 import time
 import traceback
 import urllib.parse
 import urllib.request
 import urllib.error
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from http.server import BaseHTTPRequestHandler
 from typing import Any, Dict
 
 from .constants import WEB_DIR, LEGACY_WEB_DIR, WEB_ROUTES
 from .app_state import AppState
 from .util import LOGGER, utc_now
+
 
 def make_handler(state: AppState):
     class MiniClawHandler(BaseHTTPRequestHandler):
@@ -60,15 +60,16 @@ def make_handler(state: AppState):
 
         def _serve_web_file(self, filename: str) -> None:
             target = (WEB_DIR / filename).resolve()
-            
+
             # If file doesn't exist in new frontend, try legacy frontend
             if not target.exists() or not target.is_file():
                 legacy_target = (LEGACY_WEB_DIR / filename).resolve()
                 if legacy_target.exists() and legacy_target.is_file():
                     target = legacy_target
-            
+
             try:
-                target.relative_to(WEB_DIR.resolve() if target.is_relative_to(WEB_DIR.resolve()) else LEGACY_WEB_DIR.resolve())
+                target.relative_to(WEB_DIR.resolve() if target.is_relative_to(WEB_DIR.resolve())
+                                  else LEGACY_WEB_DIR.resolve())
             except ValueError:
                 self._send_text("Forbidden", status=403)
                 return
@@ -82,7 +83,8 @@ def make_handler(state: AppState):
             if not content_type:
                 content_type = "application/octet-stream"
             self.send_response(200)
-            self.send_header("Content-Type", f"{content_type}; charset=utf-8" if content_type.startswith("text/") else content_type)
+            self.send_header("Content-Type",
+                            f"{content_type}; charset=utf-8" if content_type.startswith("text/") else content_type)
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
             self.wfile.write(raw)
@@ -115,12 +117,12 @@ def make_handler(state: AppState):
             self.send_header("Connection", "keep-alive")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            
+
             # Status tracking variables
             last_status_time = time.time()
             last_status_sent = False
             initial_delay_sent = False
-            
+
             def send_sse_event(event: str, data: str) -> None:
                 """Send an SSE event."""
                 try:
@@ -130,21 +132,21 @@ def make_handler(state: AppState):
                 except Exception:
                     # Client disconnected
                     pass
-            
+
             def status_callback(status_message: str) -> None:
                 """Callback for agent status updates."""
                 nonlocal last_status_time, last_status_sent, initial_delay_sent
                 current_time = time.time()
-                
+
                 # Send thinking emoji after 5 seconds if no status sent yet
                 if not initial_delay_sent and current_time - last_status_time >= 5:
                     send_sse_event("thinking", "🤔")
                     initial_delay_sent = True
-                
+
                 # Send status update
                 send_sse_event("status", status_message)
                 last_status_sent = True
-            
+
             try:
                 # Start the chat with updates
                 result = state.agent.chat_with_updates(
@@ -156,7 +158,7 @@ def make_handler(state: AppState):
                     },
                     status_callback=status_callback,
                 )
-                
+
                 # Send final result
                 response_data = json.dumps({"ok": True, **result})
                 send_sse_event("result", response_data)
@@ -171,11 +173,11 @@ def make_handler(state: AppState):
             # Read the request body
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length) if content_length > 0 else b''
-            
+
             # Get the authorization header
             auth_header = self.headers.get('Authorization', '')
             content_type = self.headers.get('Content-Type', 'application/json')
-            
+
             # Try to parse the request to determine which provider to use
             try:
                 if post_data:
@@ -184,10 +186,10 @@ def make_handler(state: AppState):
                     payload = {}
             except json.JSONDecodeError:
                 payload = {}
-            
+
             # Get the model from the request
             model = payload.get('model', '')
-            
+
             # Find the appropriate provider based on the model or use default
             provider = None
             if model:
@@ -196,7 +198,7 @@ def make_handler(state: AppState):
                     if p.get('model', '') == model and p.get('enabled', False):
                         provider = p
                         break
-            
+
             # If no specific model match, use the default provider
             if not provider:
                 default_provider_id = state.config_store.get().get('providers', {}).get('default_provider_id')
@@ -204,47 +206,47 @@ def make_handler(state: AppState):
                     if p.get('id') == default_provider_id and p.get('enabled', False):
                         provider = p
                         break
-            
+
             # If still no provider, use the first enabled provider
             if not provider:
                 for p in state.config_store.get().get('providers', {}).get('items', []):
                     if p.get('enabled', False):
                         provider = p
                         break
-            
+
             if not provider:
                 self._send_json({"ok": False, "error": "No enabled provider found"}, status=500)
                 return
-            
+
             # Forward the request to the provider
             provider_type = provider.get('type', 'ollama')
             base_url = provider.get('base_url', '').rstrip('/')
             api_key = provider.get('api_key', '')
-            
+
             # Construct the target URL
             if self.path.startswith('/v1/'):
                 # This is a direct OpenAI API path
                 target_path = self.path
             else:
                 target_path = '/chat/completions'  # default
-                
+
             target_url = f"{base_url}{target_path}"
-            
+
             # Prepare headers for forwarding
             headers = {
                 'Content-Type': content_type,
                 'Accept': 'application/json',
             }
-            
+
             # Add authorization if available
             if api_key:
                 headers['Authorization'] = f'Bearer {api_key}'
-            
+
             # Add any other headers that might be needed
             if provider_type == 'openrouter':
                 headers['HTTP-Referer'] = 'https://miniclaw.ai'
                 headers['X-Title'] = 'MiniClaw'
-            
+
             # Create the request
             req = urllib.request.Request(
                 url=target_url,
@@ -252,30 +254,31 @@ def make_handler(state: AppState):
                 headers=headers,
                 method='POST'
             )
-            
+
             # Handle SSL context
             ssl_context = None
             if target_url.startswith('https://') and not provider.get('verify_tls', True):
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
-            
+
             try:
                 # Forward the request
-                with urllib.request.urlopen(req, timeout=provider.get('timeout_seconds', 300), context=ssl_context) as response:
+                with urllib.request.urlopen(req, timeout=provider.get('timeout_seconds', 300),
+                                           context=ssl_context) as response:
                     # Read and forward the response
                     response_data = response.read()
                     self.send_response(response.status)
-                    
+
                     # Forward response headers
                     for header_name, header_value in response.headers.items():
                         # Skip headers that shouldn't be forwarded
                         if header_name.lower() not in ['connection', 'transfer-encoding']:
                             self.send_header(header_name, header_value)
-                    
+
                     self.end_headers()
                     self.wfile.write(response_data)
-                    
+
             except urllib.error.HTTPError as e:
                 # Forward HTTP errors
                 self.send_response(e.code)
@@ -285,7 +288,7 @@ def make_handler(state: AppState):
                         self.send_header(header_name, header_value)
                 self.end_headers()
                 self.wfile.write(e.read())
-                
+
             except Exception as e:
                 # Handle other errors
                 self._send_json({"ok": False, "error": f"Proxy error: {str(e)}"}, status=500)
@@ -361,7 +364,8 @@ def make_handler(state: AppState):
                             return
                         self._send_json({"ok": True, "file": memory_file, "files": state.memory.list_files()})
                         return
-                    self._send_json({"ok": True, "files": state.memory.read_all(), "config": state.config_store.get().get("memory")})
+                    self._send_json({"ok": True, "files": state.memory.read_all(),
+                                    "config": state.config_store.get().get("memory")})
                     return
                 if path == "/api/skills":
                     self._send_json({"ok": True, "skills": state.skills.list()})
@@ -432,7 +436,7 @@ def make_handler(state: AppState):
                     if not message:
                         self._send_json({"ok": False, "error": "message is required"}, status=400)
                         return
-                    
+
                     if stream:
                         # Handle streaming response
                         self._handle_streaming_chat(state, message, source, provider_id)
@@ -472,7 +476,7 @@ def make_handler(state: AppState):
                     payload = self._read_json()
                     chat_id = str(payload.get("chat_id") or "").strip()
                     message = str(payload.get("message") or "MiniClaw test message")
-                    
+
                     # If no chat_id provided, use the bound chat ID
                     if not chat_id:
                         config = state.config_store.get()
@@ -480,11 +484,12 @@ def make_handler(state: AppState):
                         allowed_chat_ids = telegram_cfg.get("allowed_chat_ids", [])
                         if allowed_chat_ids:
                             chat_id = str(allowed_chat_ids[0]).strip()
-                    
+
                     if not chat_id:
-                        self._send_json({"ok": False, "error": "chat_id is required or no bound chat available"}, status=400)
+                        self._send_json({"ok": False, "error": "chat_id is required or no bound chat available"},
+                                       status=400)
                         return
-                        
+
                     state.telegram.send_test_message(chat_id=chat_id, message=message)
                     self._send_json({"ok": True})
                     return
@@ -498,11 +503,11 @@ def make_handler(state: AppState):
                     payload = self._read_json()
                     contact = str(payload.get("contact") or "").strip()
                     message = str(payload.get("message") or "MiniClaw test message")
-                    
+
                     if not contact:
                         self._send_json({"ok": False, "error": "contact is required"}, status=400)
                         return
-                        
+
                     try:
                         state.whatsapp.send_test_message(contact=contact, message=message)
                         self._send_json({"ok": True})

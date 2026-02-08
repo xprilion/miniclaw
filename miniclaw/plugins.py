@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 
 from .events import EventLog
 
+
 class PluginRegistry:
     def __init__(self, plugins_dir: Path, event_log: EventLog) -> None:
         self.plugins_dir = plugins_dir
@@ -164,7 +165,8 @@ class PluginRegistry:
             if module is not None:
                 hook = getattr(module, "post_response", None)
             if not callable(hook):
-                self._event_log.add("plugin.post_response.skip", "Plugin has no post_response hook", {"plugin": plugin_id})
+                self._event_log.add("plugin.post_response.skip", "Plugin has no post_response hook",
+                                   {"plugin": plugin_id})
                 continue
 
             try:

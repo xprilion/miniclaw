@@ -14,6 +14,7 @@ from .agent import MiniClawAgent
 from .telegram import TelegramService
 from .util import LOGGER, utc_now
 
+
 class JobExecutionService:
     def __init__(
         self,
@@ -118,7 +119,7 @@ class JobExecutionService:
                     "Job execution progress",
                     {"job_id": job_id, "status": status},
                 )
-            
+
             result = self._agent.chat_with_updates(
                 user_message=str(job["prompt"]),
                 source="job",

@@ -12,6 +12,7 @@ from .constants import BASE_DIR, DEFAULT_MEMORY_FILES
 from .events import EventLog
 from .util import LOGGER, deep_merge, env_bool
 
+
 class ConfigStore:
     def __init__(self, path: Path, event_log: EventLog) -> None:
         self.path = path

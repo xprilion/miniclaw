@@ -13,6 +13,7 @@ from openai import OpenAI
 from .events import EventLog
 from .util import LOGGER
 
+
 class ModelProviderClient:
     def __init__(self, event_log: EventLog) -> None:
         self._event_log = event_log
@@ -34,7 +35,8 @@ class ModelProviderClient:
         request_headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
@@ -91,7 +93,8 @@ class ModelProviderClient:
                             return {"ok": False, "error": "Invalid JSON response", "raw_body": body}
                     else:
                         # Non-JSON response
-                        return {"ok": False, "error": "Non-JSON response", "content_type": content_type, "raw_body": body}
+                        return {"ok": False, "error": "Non-JSON response", "content_type": content_type,
+                               "raw_body": body}
                 else:
                     return {}
         except urllib.error.HTTPError as exc:
@@ -284,7 +287,8 @@ class ModelProviderClient:
                     "reason": error_text,
                 },
             )
-            LOGGER.warning("Ollama /api/chat failed; fallback to /api/generate provider=%s model=%s", provider.get("id"), model)
+            LOGGER.warning("Ollama /api/chat failed; fallback to /api/generate provider=%s model=%s",
+                          provider.get("id"), model)
             generate_payload = {
                 "model": model,
                 "prompt": self._messages_to_generate_prompt(messages),
@@ -324,21 +328,21 @@ class ModelProviderClient:
         timeout_seconds = int(provider.get("timeout_seconds") or 300)
         temperature = float(provider.get("temperature") or 0.2)
         api_key = str(provider.get("api_key") or "").strip()
-        
+
         LOGGER.info(
             "Sending OpenAI-compatible chat request provider=%s model=%s url=%s",
             provider.get("id"),
             model,
             base_url,
         )
-        
+
         # Use the official OpenAI client which handles all the complexities
         client = OpenAI(
             base_url=base_url,
             api_key=api_key,
             timeout=timeout_seconds,
         )
-        
+
         try:
             # Log the request
             self._event_log.add(
@@ -350,7 +354,7 @@ class ModelProviderClient:
                     "messages_count": len(messages),
                 },
             )
-            
+
             # Make the request using the official client
             response = client.chat.completions.create(
                 model=model,
@@ -358,7 +362,7 @@ class ModelProviderClient:
                 temperature=temperature,
                 stream=False,
             )
-            
+
             # Log the response
             self._event_log.add(
                 "network.response",
@@ -368,14 +372,14 @@ class ModelProviderClient:
                     "choices_count": len(response.choices) if response.choices else 0,
                 },
             )
-            
+
             # Extract content from the response
             content = ""
             if response.choices and len(response.choices) > 0:
                 choice = response.choices[0]
                 if choice.message and choice.message.content:
                     content = str(choice.message.content).strip()
-            
+
             # Extract usage information
             usage = {
                 "prompt_tokens": 0,
@@ -386,7 +390,7 @@ class ModelProviderClient:
                 usage["prompt_tokens"] = getattr(response.usage, "prompt_tokens", 0) or 0
                 usage["completion_tokens"] = getattr(response.usage, "completion_tokens", 0) or 0
                 usage["total_tokens"] = getattr(response.usage, "total_tokens", 0) or 0
-            
+
             return {
                 "provider_id": str(provider.get("id") or ""),
                 "provider_type": "openai_compatible",
@@ -395,7 +399,7 @@ class ModelProviderClient:
                 "usage": usage,
                 "raw_response": response.model_dump() if hasattr(response, 'model_dump') else response.dict(),
             }
-            
+
         except openai.APIError as e:
             error_msg = f"OpenAI API error: {str(e)}"
             self._event_log.add(
@@ -471,7 +475,8 @@ class ModelProviderClient:
             "prompt_tokens": int(usage_raw.get("prompt_tokens") or 0),
             "completion_tokens": int(usage_raw.get("completion_tokens") or 0),
         }
-        usage["total_tokens"] = int(usage_raw.get("total_tokens") or (usage["prompt_tokens"] + usage["completion_tokens"]))
+        usage["total_tokens"] = int(usage_raw.get("total_tokens") or
+                                   (usage["prompt_tokens"] + usage["completion_tokens"]))
         return {
             "provider_id": str(provider.get("id") or ""),
             "provider_type": "litellm",
@@ -534,7 +539,8 @@ class ModelProviderClient:
             "prompt_tokens": int(usage_raw.get("prompt_tokens") or 0),
             "completion_tokens": int(usage_raw.get("completion_tokens") or 0),
         }
-        usage["total_tokens"] = int(usage_raw.get("total_tokens") or (usage["prompt_tokens"] + usage["completion_tokens"]))
+        usage["total_tokens"] = int(usage_raw.get("total_tokens") or
+                                   (usage["prompt_tokens"] + usage["completion_tokens"]))
         return {
             "provider_id": str(provider.get("id") or ""),
             "provider_type": "openrouter",

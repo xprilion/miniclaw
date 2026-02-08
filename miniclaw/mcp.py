@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from .config import ConfigStore
 from .events import EventLog
 
+
 class MCPStdioSession:
     def __init__(self, server: Dict[str, Any]) -> None:
         self.server = copy.deepcopy(server)
@@ -145,7 +146,8 @@ class MCPStdioSession:
         }
         self._send(payload)
 
-    def request(self, method: str, params: Optional[Dict[str, Any]] = None, timeout_seconds: int = 30) -> Dict[str, Any]:
+    def request(self, method: str, params: Optional[Dict[str, Any]] = None,
+                timeout_seconds: int = 30) -> Dict[str, Any]:
         req_id = self._next_id
         self._next_id += 1
         payload = {
@@ -256,7 +258,8 @@ class MCPServerManager:
         try:
             session.start()
             session.initialize(timeout_seconds=int(session.server.get("timeout_seconds") or 30))
-            tools_result = session.request("tools/list", {}, timeout_seconds=int(session.server.get("timeout_seconds") or 30))
+            tools_result = session.request("tools/list", {},
+                                          timeout_seconds=int(session.server.get("timeout_seconds") or 30))
             tools = tools_result.get("tools")
             if not isinstance(tools, list):
                 tools = []

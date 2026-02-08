@@ -43,22 +43,22 @@ def execute_miniclaw_job(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # Initialize app state if needed
         state = initialize_app_state()
-        
+
         job_id = job_data.get("id", "")
         job_name = job_data.get("name", job_id)
         prompt = job_data.get("prompt", "")
-        
+
         logger.info(f"Executing job id={job_id} name={job_name}")
-        
+
         # Execute the job using the agent
         result = state.agent.chat_with_updates(
             user_message=prompt,
             source="job",
             meta={"job_id": job_id, "job_name": job_name},
         )
-        
+
         response_text = str(result.get("response") or "")
-        
+
         # Send to Telegram if configured
         target_chat = str(job_data.get("send_to_telegram_chat_id") or "").strip()
         if target_chat and state.telegram:
@@ -69,20 +69,20 @@ def execute_miniclaw_job(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
                 )
             except Exception as exc:
                 logger.error(f"Failed to send job output to Telegram: {exc}")
-        
+
         logger.info(f"Job completed id={job_id} duration={result.get('duration_seconds', 0)}s")
-        
+
         return {
             "ok": True,
             "job_id": job_id,
             "result": result,
             "completed_at": utc_now(),
         }
-        
+
     except Exception as exc:
         logger.error(f"Job execution failed id={job_data.get('id', '')}: {exc}")
         logger.error(traceback.format_exc())
-        
+
         return {
             "ok": False,
             "job_id": job_data.get("id", ""),

@@ -8,7 +8,6 @@ from typing import Any, Dict, List
 
 from .constants import (
     CONFIG_PATH,
-    DEFAULT_MEMORY_FILES,
     DEFAULT_JOBS,
     DEFAULT_SKILL_TEMPLATES,
     ENV_KEYS,
@@ -36,6 +35,7 @@ from .agent import MiniClawAgent
 from .model_client import ModelProviderClient
 from .tools import ToolRunner
 from .util import LOGGER
+
 
 class AppState:
     def __init__(self) -> None:
@@ -183,7 +183,9 @@ class AppState:
         if not seeded_skills:
             created = self.skills.seed_defaults(DEFAULT_SKILL_TEMPLATES)
             removed_transparency = self.skills.delete_if_exists("transparency")
-            enabled_skills = [str(item).strip() for item in config["agent"].get("enabled_skills") or [] if str(item).strip()]
+            enabled_skills = [
+                str(item).strip() for item in config["agent"].get("enabled_skills") or [] if str(item).strip()
+            ]
             available_ids = {item["id"] for item in self.skills.list()}
             enabled_present = [item for item in enabled_skills if item in available_ids]
             if not enabled_present:
@@ -214,8 +216,8 @@ class AppState:
             config["scheduler"]["seeded_default_jobs"] = True
             self.config_store.save(config)
             self.event_log.add(
-            "seed.jobs",
-            "Seeded default jobs",
+                "seed.jobs",
+                "Seeded default jobs",
                 {"jobs_count": len(self.job_store.list())},
             )
 
@@ -240,7 +242,8 @@ class AppState:
                 "whatsapp_restarted": whatsapp_restarted,
             },
         )
-        LOGGER.info("Runtime reloaded from config update telegram_restarted=%s whatsapp_restarted=%s", telegram_restarted, whatsapp_restarted)
+        LOGGER.info("Runtime reloaded from config update telegram_restarted=%s whatsapp_restarted=%s",
+                   telegram_restarted, whatsapp_restarted)
         return updated
 
     def update_skill_settings(self, enabled_skills: List[str], min_score: int) -> Dict[str, Any]:

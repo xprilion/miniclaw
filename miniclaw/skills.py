@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from .events import EventLog
 
+
 class SkillRegistry:
     def __init__(self, skills_dir: Path, event_log: EventLog) -> None:
         self.skills_dir = skills_dir

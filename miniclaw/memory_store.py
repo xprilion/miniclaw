@@ -10,6 +10,7 @@ from .config import ConfigStore
 from .events import EventLog
 from .util import utc_now
 
+
 class MemoryStore:
     def __init__(self, memory_dir: Path, config_store: ConfigStore, event_log: EventLog) -> None:
         self.memory_dir = memory_dir

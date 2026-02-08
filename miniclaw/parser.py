@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from html.parser import HTMLParser
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 class HTMLTextExtractor(HTMLParser):
