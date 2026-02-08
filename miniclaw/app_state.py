@@ -1,4 +1,4 @@
-"""Application state: config, skills, agent, telegram, scheduler."""
+"""Application state: config, skills, agent, telegram, jobs."""
 from __future__ import annotations
 
 import copy
@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 from .constants import (
     CONFIG_PATH,
     DEFAULT_MEMORY_FILES,
-    DEFAULT_SCHEDULER_JOBS,
+    DEFAULT_JOBS,
     DEFAULT_SKILL_TEMPLATES,
     ENV_KEYS,
     JOBS_DIR,
@@ -17,6 +17,7 @@ from .constants import (
     PLUGINS_DIR,
     SKILLS_DIR,
     WEB_DIR,
+    WORKSPACE_DIR,
 )
 from .config import ConfigStore
 from .events import EventLog, UsageTracker
@@ -25,11 +26,12 @@ from .memory_store import MemoryStore
 from .mcp import MCPServerManager
 from .plugin_manager import create_plugin_manager
 from .plugins import PluginRegistry
+from .script_generator import ScriptGenerator
 from .security import create_security_managers
 from .skills import SkillRegistry
 from .telegram import TelegramService
 from .whatsapp import WhatsAppService
-from .scheduler import SchedulerService
+from .jobs import JobExecutionService
 from .agent import MiniClawAgent
 from .model_client import ModelProviderClient
 from .tools import ToolRunner
@@ -75,29 +77,20 @@ class AppState:
         self.whatsapp = WhatsAppService(self.config_store, self.event_log, self.agent)
         self.whatsapp.start_if_enabled()
         self.job_store = JobStore(JOBS_DIR, self.event_log)
-        self._migrate_scheduler_jobs_to_store()
-        self.scheduler = SchedulerService(
+        self._migrate_legacy_scheduler_jobs_to_store()
+        self.job_service = JobExecutionService(
             self.config_store,
             self.job_store,
             self.event_log,
             self.agent,
             self.telegram,
         )
+        self.script_generator = ScriptGenerator(WORKSPACE_DIR)
         LOGGER.info(
-            "App initialized skills=%d plugins=%d telegram_enabled=%s whatsapp_enabled=%s",
+            "App initialized skills=%d plugins=%d telegram_enabled=%s",
             len(self.skills.list()),
             len(self.plugins.list()),
             bool(loaded["telegram"].get("enabled")),
-            bool(loaded.get("channels", {}).get("whatsapp_wacli", {}).get("enabled", False)),
-        )
-        self.job_store = JobStore(JOBS_DIR, self.event_log)
-        self._migrate_scheduler_jobs_to_store()
-        self.scheduler = SchedulerService(
-            self.config_store,
-            self.job_store,
-            self.event_log,
-            self.agent,
-            self.telegram,
         )
         LOGGER.info(
 
@@ -107,7 +100,7 @@ class AppState:
             bool(loaded["telegram"].get("enabled")),
         )
 
-    def _migrate_scheduler_jobs_to_store(self) -> None:
+    def _migrate_legacy_scheduler_jobs_to_store(self) -> None:
         """One-time: move jobs from config file into ~/.miniclaw/jobs/ and clear config."""
         existing = self.job_store.list()
         if existing:
@@ -213,7 +206,7 @@ class AppState:
         if not seeded_jobs:
             existing = self.job_store.list()
             if not existing:
-                for item in copy.deepcopy(DEFAULT_SCHEDULER_JOBS):
+                for item in copy.deepcopy(DEFAULT_JOBS):
                     try:
                         self.job_store.save(item)
                     except (ValueError, OSError):
@@ -221,8 +214,8 @@ class AppState:
             config["scheduler"]["seeded_default_jobs"] = True
             self.config_store.save(config)
             self.event_log.add(
-                "seed.scheduler",
-                "Seeded default scheduler jobs",
+            "seed.jobs",
+            "Seeded default jobs",
                 {"jobs_count": len(self.job_store.list())},
             )
 
@@ -277,7 +270,7 @@ class AppState:
             "skill_match_min_score": updated["agent"].get("skill_match_min_score"),
         }
 
-    def upsert_scheduler_job(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def upsert_job(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         raw_id = str(payload.get("id") or "").strip().lower()
         job_id = "".join(ch for ch in raw_id if ch.isalnum() or ch in {"_", "-"})
         if not job_id:
@@ -299,13 +292,13 @@ class AppState:
         }
         self.job_store.save(upserted)
         self.event_log.add(
-            "scheduler.job.saved",
-            "Saved scheduler job",
+            "job.saved",
+            "Saved job",
             {"job": upserted},
         )
         return upserted
 
-    def delete_scheduler_job(self, job_id: str) -> Dict[str, Any]:
+    def delete_job(self, job_id: str) -> Dict[str, Any]:
         wanted = str(job_id or "").strip().lower()
         if not wanted:
             raise ValueError("job_id is required")
@@ -313,8 +306,8 @@ class AppState:
             raise ValueError(f"Scheduler job not found: {wanted}")
         self.job_store.delete(wanted)
         self.event_log.add(
-            "scheduler.job.deleted",
-            "Deleted scheduler job",
+            "job.deleted",
+            "Deleted job",
             {"job_id": wanted},
         )
         return {"id": wanted}
@@ -350,6 +343,8 @@ class AppState:
             "web_dir": str(WEB_DIR),
             "memory_dir": str(MEMORY_DIR),
             "jobs_dir": str(JOBS_DIR),
+            "scripts_dir": str(self.script_generator.scripts_dir),
+            "generated_scripts": self.script_generator.list_scripts(),
             "network_targets": targets,
             "environment": {key: os.getenv(key) for key in ENV_KEYS if os.getenv(key) is not None},
             "loaded_skills": [
@@ -368,5 +363,5 @@ class AppState:
             },
             "channels": channels,
             "telegram": self.telegram.status(),
-            "scheduler": self.scheduler.status(),
+            "jobs": self.job_service.status(),
         }

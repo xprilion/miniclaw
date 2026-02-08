@@ -144,7 +144,7 @@ class ConfigStore:
             "monitoring": {
                 "max_events": 700,
             },
-            "scheduler": {
+            "jobs": {
                 "enabled": True,
                 "jobs": [],
                 "seeded_default_jobs": False,
@@ -464,10 +464,9 @@ class ConfigStore:
             },
         }
 
-        merged["scheduler"]["enabled"] = bool(merged["scheduler"].get("enabled", True))
-        merged["scheduler"]["seeded_default_jobs"] = bool(merged["scheduler"].get("seeded_default_jobs", False))
-        # Jobs live in ~/.miniclaw/jobs/ (one file per job); do not load/store in config
-        merged["scheduler"]["jobs"] = []
+        merged["jobs"]["enabled"] = bool(merged["jobs"].get("enabled", True))
+        merged["jobs"]["seeded_default_jobs"] = bool(merged["jobs"].get("seeded_default_jobs", False))
+        merged["jobs"]["jobs"] = []
         return merged
 
     def _load_or_create(self) -> None:

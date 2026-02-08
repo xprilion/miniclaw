@@ -168,16 +168,16 @@ const LandingPage = () => {
 
           <div class="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800">
             <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white">Task Scheduler</h3>
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white">Job Management</h3>
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Schedule automated tasks and receive periodic reports and updates.
+                Manage automated jobs and receive periodic reports and updates.
               </p>
               <div class="mt-4">
                 <a 
-                  href="/scheduler" 
+                  href="/jobs" 
                   class="text-sm font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
                 >
-                  Schedule Tasks
+                  Manage Jobs
                 </a>
               </div>
             </div>

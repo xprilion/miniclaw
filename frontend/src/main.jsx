@@ -11,7 +11,7 @@ import SetupPage from './pages/SetupPage'
 import EnhancedSetupPage from './pages/EnhancedSetupPage'
 import SimplifiedSetupPage from './pages/SimplifiedSetupPage'
 import SkillsPage from './pages/SkillsPage'
-import SchedulerPage from './pages/SchedulerPage'
+import JobsPage from './pages/JobsPage'
 import MonitoringPage from './pages/MonitoringPage'
 
 // Create context for global state
@@ -116,7 +116,7 @@ export function App() {
           <EnhancedSetupPage path="/setup/enhanced" />
           <SimplifiedSetupPage path="/setup" />
           <SkillsPage path="/skills" />
-          <SchedulerPage path="/scheduler" />
+          <JobsPage path="/jobs" />
           <MonitoringPage path="/monitoring" />
         </Router>
       </div>

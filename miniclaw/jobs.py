@@ -1,4 +1,4 @@
-"""Scheduled agent jobs with optional Telegram delivery."""
+"""Agent job execution service with optional Telegram delivery."""
 from __future__ import annotations
 
 import threading
@@ -12,9 +12,9 @@ from .events import EventLog
 from .job_store import JobStore
 from .agent import MiniClawAgent
 from .telegram import TelegramService
-from .util import LOGGER
+from .util import LOGGER, utc_now
 
-class SchedulerService:
+class JobExecutionService:
     def __init__(
         self,
         config_store: ConfigStore,
@@ -30,23 +30,23 @@ class SchedulerService:
         self._telegram = telegram
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
-        self._thread = threading.Thread(target=self._run, daemon=True, name="miniclaw-scheduler")
+        self._thread = threading.Thread(target=self._run, daemon=True, name="miniclaw-jobs")
         self._next_run_epoch: Dict[str, float] = {}
         self._last_run_iso: Dict[str, str] = {}
         self._inflight: set[str] = set()
         self._thread.start()
-        self._event_log.add("scheduler.started", "Scheduler service started", {})
-        LOGGER.info("Scheduler service started")
+        self._event_log.add("job.service.started", "Job execution service started", {})
+        LOGGER.info("Job execution service started")
 
     def stop(self) -> None:
         self._stop_event.set()
         self._thread.join(timeout=5)
-        self._event_log.add("scheduler.stopped", "Scheduler service stopped", {})
-        LOGGER.info("Scheduler service stopped")
+        self._event_log.add("job.service.stopped", "Job execution service stopped", {})
+        LOGGER.info("Job execution service stopped")
 
     def _jobs_from_store(self) -> tuple[bool, List[Dict[str, Any]]]:
-        scheduler_cfg = self._config_store.get().get("scheduler", {})
-        enabled = bool(scheduler_cfg.get("enabled", True))
+        jobs_cfg = self._config_store.get().get("jobs", {})
+        enabled = bool(jobs_cfg.get("enabled", True))
         jobs = self._job_store.list()
         return enabled, jobs
 
@@ -89,38 +89,41 @@ class SchedulerService:
     def trigger_now(self, job_id: str) -> Dict[str, Any]:
         job = self._job_by_id(job_id)
         if job is None:
-            raise ValueError(f"Scheduler job not found: {job_id}")
+            raise ValueError(f"Job not found: {job_id}")
         if not job.get("enabled", True):
-            raise ValueError(f"Scheduler job is disabled: {job_id}")
+            raise ValueError(f"Job is disabled: {job_id}")
         with self._lock:
             if job["id"] in self._inflight:
                 return {"started": False, "reason": "already_running", "job_id": job["id"]}
             self._inflight.add(job["id"])
             self._next_run_epoch[job["id"]] = time.time() + int(job["interval_seconds"])
-        threading.Thread(target=self._execute_job, args=(job,), daemon=True, name=f"scheduler-job-{job['id']}").start()
+        threading.Thread(target=self._execute_job, args=(job,), daemon=True, name=f"job-{job['id']}").start()
         return {"started": True, "job_id": job["id"]}
 
     def _execute_job(self, job: Dict[str, Any]) -> None:
         job_id = job["id"]
         started = time.time()
         self._event_log.add(
-            "scheduler.job.started",
-            "Scheduler job started",
+            "job.execution.started",
+            "Job execution started",
             {
                 "job": job,
             },
         )
-        LOGGER.info("Scheduler job started id=%s name=%s", job_id, job.get("name"))
+        LOGGER.info("Job execution started id=%s name=%s", job_id, job.get("name"))
         try:
+            def job_status_callback(status: str) -> None:
+                self._event_log.add(
+                    "job.execution.progress",
+                    "Job execution progress",
+                    {"job_id": job_id, "status": status},
+                )
+            
             result = self._agent.chat_with_updates(
                 user_message=str(job["prompt"]),
-                source="scheduler",
+                source="job",
                 meta={"job_id": job_id, "job_name": job.get("name")},
-                status_callback=lambda status: self._event_log.add(
-                    "scheduler.job.progress",
-                    "Scheduler job progress",
-                    {"job_id": job_id, "status": status},
-                ),
+                status_callback=job_status_callback,
             )
             response_text = str(result.get("response") or "")
             target_chat = str(job.get("send_to_telegram_chat_id") or "").strip()
@@ -128,7 +131,7 @@ class SchedulerService:
                 try:
                     self._telegram.send_test_message(
                         target_chat,
-                        f"[Scheduler:{job.get('name') or job_id}] {response_text}",
+                        f"[Job:{job.get('name') or job_id}] {response_text}",
                     )
                 except Exception as exc:
                     self._event_log.add(
@@ -141,26 +144,26 @@ class SchedulerService:
                         },
                     )
             self._event_log.add(
-                "scheduler.job.completed",
-                "Scheduler job completed",
+                "job.execution.completed",
+                "Job execution completed",
                 {
                     "job_id": job_id,
                     "duration_seconds": round(time.time() - started, 3),
                     "response_preview": response_text[:220],
                 },
             )
-            LOGGER.info("Scheduler job completed id=%s duration=%.2fs", job_id, time.time() - started)
+            LOGGER.info("Job execution completed id=%s duration=%.2fs", job_id, time.time() - started)
         except Exception as exc:
             self._event_log.add(
-                "scheduler.job.error",
-                "Scheduler job failed",
+                "job.execution.error",
+                "Job execution failed",
                 {
                     "job_id": job_id,
                     "error": f"{exc.__class__.__name__}: {exc}",
                     "traceback": traceback.format_exc(limit=10),
                 },
             )
-            LOGGER.exception("Scheduler job failed id=%s", job_id)
+            LOGGER.exception("Job execution failed id=%s", job_id)
         finally:
             with self._lock:
                 self._inflight.discard(job_id)
@@ -203,5 +206,5 @@ class SchedulerService:
                         target=self._execute_job,
                         args=(job,),
                         daemon=True,
-                        name=f"scheduler-job-{job_id}",
+                        name=f"job-{job_id}",
                     ).start()

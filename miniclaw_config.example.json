@@ -118,7 +118,7 @@
   "monitoring": {
     "max_events": 700
   },
-  "scheduler": {
+  "jobs": {
     "enabled": true,
     "jobs": [],
     "seeded_default_jobs": false

@@ -1,4 +1,4 @@
-"""Scheduler jobs stored as one JSON file per job under ~/.miniclaw/jobs."""
+"""Jobs stored as one JSON file per job under ~/.miniclaw/jobs."""
 from __future__ import annotations
 
 import json
@@ -79,7 +79,7 @@ class JobStore:
         path = self._path(normalized["id"])
         with self._lock:
             path.write_text(json.dumps(normalized, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        self._event_log.add("job_store.saved", "Saved scheduler job", {"job_id": normalized["id"]})
+        self._event_log.add("job_store.saved", "Saved job", {"job_id": normalized["id"]})
         return normalized
 
     def delete(self, job_id: str) -> bool:
@@ -87,6 +87,6 @@ class JobStore:
         with self._lock:
             if path.exists():
                 path.unlink()
-                self._event_log.add("job_store.deleted", "Deleted scheduler job", {"job_id": job_id})
+                self._event_log.add("job_store.deleted", "Deleted job", {"job_id": job_id})
                 return True
         return False

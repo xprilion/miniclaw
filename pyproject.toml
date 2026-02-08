@@ -13,6 +13,7 @@ authors = [{ name = "MiniClaw" }]
 keywords = ["ai", "assistant", "ollama", "telegram", "agent", "cli"]
 dependencies = [
   "litellm>=1.0.0",
+  "celery>=5.0.0",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

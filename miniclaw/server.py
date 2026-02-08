@@ -376,8 +376,8 @@ def make_handler(state: AppState):
                     catalog = state.tools.catalog(include_mcp_details=True)
                     self._send_json({"ok": True, "tools": catalog})
                     return
-                if path == "/api/scheduler":
-                    self._send_json({"ok": True, "scheduler": state.scheduler.status()})
+                if path == "/api/jobs":
+                    self._send_json({"ok": True, "jobs": state.job_service.status()})
                     return
                 if path == "/api/telegram/pairings":
                     self._send_json({"ok": True, "pairings": state.telegram.pairing_status()})
@@ -597,42 +597,42 @@ def make_handler(state: AppState):
                     self._send_json({"ok": True, "settings": settings})
                     return
 
-                if path == "/api/scheduler/upsert":
+                if path == "/api/jobs/upsert":
                     payload = self._read_json()
                     try:
-                        job = state.upsert_scheduler_job(payload)
+                        job = state.upsert_job(payload)
                     except ValueError as exc:
                         self._send_json({"ok": False, "error": str(exc)}, status=400)
                         return
-                    self._send_json({"ok": True, "job": job, "scheduler": state.scheduler.status()})
+                    self._send_json({"ok": True, "job": job, "jobs": state.job_service.status()})
                     return
 
-                if path == "/api/scheduler/delete":
+                if path == "/api/jobs/delete":
                     payload = self._read_json()
                     job_id = str(payload.get("id") or "").strip()
                     if not job_id:
                         self._send_json({"ok": False, "error": "id is required"}, status=400)
                         return
                     try:
-                        deleted = state.delete_scheduler_job(job_id)
+                        deleted = state.delete_job(job_id)
                     except ValueError as exc:
                         self._send_json({"ok": False, "error": str(exc)}, status=400)
                         return
-                    self._send_json({"ok": True, "deleted": deleted, "scheduler": state.scheduler.status()})
+                    self._send_json({"ok": True, "deleted": deleted, "jobs": state.job_service.status()})
                     return
 
-                if path == "/api/scheduler/run":
+                if path == "/api/jobs/run":
                     payload = self._read_json()
                     job_id = str(payload.get("id") or "").strip()
                     if not job_id:
                         self._send_json({"ok": False, "error": "id is required"}, status=400)
                         return
                     try:
-                        result = state.scheduler.trigger_now(job_id)
+                        result = state.job_service.trigger_now(job_id)
                     except ValueError as exc:
                         self._send_json({"ok": False, "error": str(exc)}, status=400)
                         return
-                    self._send_json({"ok": True, "result": result, "scheduler": state.scheduler.status()})
+                    self._send_json({"ok": True, "result": result, "jobs": state.job_service.status()})
                     return
 
                 if path == "/api/tools/run":

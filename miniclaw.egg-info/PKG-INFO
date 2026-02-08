@@ -1,3 +1,24 @@
+Metadata-Version: 2.4
+Name: miniclaw
+Version: 0.1.0
+Summary: Ultra-lightweight personal AI assistant with Ollama, tools, Telegram, and web UI
+Author: MiniClaw
+License: MIT
+Keywords: ai,assistant,ollama,telegram,agent,cli
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: litellm>=1.0.0
+Requires-Dist: celery>=5.0.0
+
 # MiniClaw
 
 MiniClaw is a production-ready, secure, and minimal AI agent infrastructure inspired by OpenClaw. Originally designed as a minimal local agent optimized for smaller models, MiniClaw has been enhanced with enterprise-grade features while maintaining its lightweight nature and ease of use.
@@ -209,9 +230,6 @@ The new plugin system provides:
 - [Production Deployment](docs/deployment.md)
 - [Enhancement Summary](docs/enhancement_summary.md)
 - [API Documentation](docs/api.md)
-- [Enhanced Setup Guide](docs/setup.md)
-- [CLI Documentation](docs/cli.md)
-- [CLI Styling System](docs/cli_styling.md)
 
 ## Examples
 

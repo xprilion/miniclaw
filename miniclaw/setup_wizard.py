@@ -353,7 +353,7 @@ class SetupWizard:
             "monitoring": {
                 "max_events": 700,
             },
-            "scheduler": {
+            "jobs": {
                 "enabled": True,
                 "jobs": [],
                 "seeded_default_jobs": False,

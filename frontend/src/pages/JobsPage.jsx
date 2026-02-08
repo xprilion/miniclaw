@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'preact/hooks'
 import { api, showStatus } from '../lib/utils'
 
-const SchedulerPage = () => {
+const JobsPage = () => {
   const [jobs, setJobs] = useState([])
-  const [schedulerStatus, setSchedulerStatus] = useState(null)
+  const [jobsStatus, setJobsStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedJobId, setSelectedJobId] = useState('')
   const [formData, setFormData] = useState({
@@ -16,10 +16,10 @@ const SchedulerPage = () => {
   })
 
   const loadJobs = async () => {
-    const data = await api('/api/scheduler')
-    setSchedulerStatus(data.scheduler)
-    setJobs(data.scheduler.jobs || [])
-    return data.scheduler.jobs || []
+    const data = await api('/api/jobs')
+    setJobsStatus(data.jobs)
+    setJobs(data.jobs.jobs || [])
+    return data.jobs.jobs || []
   }
 
   const reloadJobs = async () => {
@@ -104,7 +104,7 @@ const SchedulerPage = () => {
         prompt: formData.prompt.trim()
       }
 
-      await api('/api/scheduler/upsert', {
+      await api('/api/jobs/upsert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -125,7 +125,7 @@ const SchedulerPage = () => {
         throw new Error('Job ID is required')
       }
 
-      await api('/api/scheduler/delete', {
+      await api('/api/jobs/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: formData.id.trim() })
@@ -145,7 +145,7 @@ const SchedulerPage = () => {
         throw new Error('Job ID is required')
       }
 
-      const result = await api('/api/scheduler/run', {
+      const result = await api('/api/jobs/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: formData.id.trim() })
@@ -208,9 +208,9 @@ const SchedulerPage = () => {
               </div>
             </div>
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Status: {schedulerStatus?.enabled ? 'Enabled' : 'Disabled'} | 
-              Active: {schedulerStatus?.active_jobs || 0} | 
-              Next wake: {schedulerStatus?.next_wake_at ? new Date(schedulerStatus.next_wake_at).toLocaleTimeString() : 'N/A'}
+              Status: {jobsStatus?.enabled ? 'Enabled' : 'Disabled'} | 
+              Active: {jobsStatus?.active_jobs || 0} | 
+              Next wake: {jobsStatus?.next_wake_at ? new Date(jobsStatus.next_wake_at).toLocaleTimeString() : 'N/A'}
             </div>
             <div
               id="jobsList"
@@ -368,4 +368,4 @@ const SchedulerPage = () => {
   )
 }
 
-export default SchedulerPage
+export default JobsPage

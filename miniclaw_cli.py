@@ -14,6 +14,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from miniclaw.setup_wizard import run_setup_wizard
+from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
+from miniclaw.cli_utils import CLIExperience, CLIStyle
+
+# Global CLI experience instance
+cli = CLIExperience("MiniClaw")
+style = CLIStyle()
 
 
 def parse_json(text: str) -> Any:
@@ -77,105 +83,69 @@ def get_workspace_dir() -> Path:
 
 
 def run_install(args: argparse.Namespace) -> int:
-    """Create workspace, config, memory, skills, plugins and print setup steps."""
-    workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
-    print("MiniClaw install")
-    print("=" * 50)
-    print("\n1. Requirements (run these if not already done):")
-    print("   • Python 3.9+")
-    print("     Check: python3 --version")
-    print("   • uv or pip")
-    print("     Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
-    print("   • Ollama (for local models)")
-    print("     Install: https://ollama.com")
-    print("     Run: ollama serve  (then e.g. ollama pull qwen3)")
-    print("\n2. Creating workspace at:", workspace)
-    os.environ["MINICLAW_WORKSPACE"] = str(workspace)
-    workspace.mkdir(parents=True, exist_ok=True)
-    (workspace / "memory").mkdir(exist_ok=True)
-    (workspace / "skills").mkdir(exist_ok=True)
-    (workspace / "plugins").mkdir(exist_ok=True)
-    (workspace / "jobs").mkdir(exist_ok=True)
-    print("   Created: memory/, skills/, plugins/, jobs/")
-    try:
-        from miniclaw.constants import CONFIG_PATH, MEMORY_DIR, PLUGINS_DIR, SKILLS_DIR
-        from miniclaw.config import ConfigStore
-        from miniclaw.events import EventLog
-        from miniclaw.memory_store import MemoryStore
-        from miniclaw.skills import SkillRegistry
-        from miniclaw.plugins import PluginRegistry
-
-        event_log = EventLog()
-        config_store = ConfigStore(CONFIG_PATH, event_log)
-        MemoryStore(MEMORY_DIR, config_store, event_log)
-        SkillRegistry(SKILLS_DIR, event_log)
-        PluginRegistry(PLUGINS_DIR, event_log)
-        print("   Config:", CONFIG_PATH)
-        print("   Memory files (soul.md, user.md, etc.): created in memory/")
-    except Exception as e:
-        print("   Warning: could not init config/memory via app modules:", e, file=sys.stderr)
-        config_path = workspace / "miniclaw_config.json"
-        if not config_path.exists():
-            default_config = {
-                "server": {"host": "127.0.0.1", "port": 8787},
-                "ollama": {
-                    "base_url": "http://localhost:11434",
-                    "model": "qwen3",
-                    "temperature": 0.2,
-                    "timeout_seconds": 300,
-                    "verify_tls": True,
-                },
-                "providers": {
-                    "default_provider_id": "ollama_default",
-                    "items": [
-                        {
-                            "id": "ollama_default",
-                            "name": "Ollama Default",
-                            "type": "ollama",
-                            "enabled": True,
-                            "base_url": "http://localhost:11434",
-                            "api_key": "",
-                            "model": "qwen3",
-                            "temperature": 0.2,
-                            "timeout_seconds": 300,
-                            "verify_tls": True,
-                            "system_prompt_override": "",
-                        }
-                    ],
-                },
-                "memory": {"enabled": True, "files": ["soul.md", "user.md", "project.md", "journal.md"], "max_chars_per_file": 3000},
-                "tools": {"enabled": True, "max_steps": 4, "working_directory": str(workspace)},
-            }
-            config_path.write_text(json.dumps(default_config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            print("   Wrote minimal config to", config_path)
-        for name, content in [
-            ("soul.md", "# Soul\n\nCore stance: be clear, concrete, and practical.\n"),
-            ("user.md", "# User Profile\n\nPreferred style: direct, low fluff.\n"),
-            ("project.md", "# Project Context\n\nArchitecture decisions and constraints.\n"),
-            ("journal.md", "# Journal\n\nTimestamped summaries.\n"),
-        ]:
-            p = workspace / "memory" / name
-            if not p.exists():
-                p.write_text(content, encoding="utf-8")
-                print("   Created memory/", name)
-    print("\n3. Make the 'miniclaw' command available (from project root):")
-    print("   uv pip install -e .   # or: pip install -e .")
-    print("   Then use: miniclaw status  |  miniclaw agent -m \"Hello\"  |  miniclaw gateway")
-    print("\n4. Next steps:")
-    print("   • Set Ollama URL if not local: edit providers in", workspace / "miniclaw_config.json")
-    print("   • Start server: miniclaw gateway   (or: uv run python main.py)")
-    print("   • Open: http://127.0.0.1:8787")
-    print("   • Chat: miniclaw agent -m \"Your message\"")
-    print("\nInstall complete. Run: miniclaw status  to verify.")
-    return 0
+    """Run the enhanced interactive setup wizard."""
+    print(style.header("MiniClaw Installation"))
+    print(style.info("Starting interactive setup wizard with KeyDB support..."))
+    
+    # Show a simple progress indicator
+    print(style.info("Launching setup wizard..."))
+    
+    from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
+    result = run_enhanced_setup_wizard()
+    
+    if result == 0:
+        print(style.success("Installation completed successfully!"))
+        print(style.info("Next steps:"))
+        print(f"  {style.list_item('Start the server: ' + style.code('miniclaw gateway'))}")
+        print(f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}")
+        print(f"  {style.list_item('Chat via CLI: ' + style.code('miniclaw agent -m \"Hello!\"'))}")
+    else:
+        print(style.error("Installation failed. Please check the error messages above."))
+    
+    return result
 
 
 def run_uninstall(args: argparse.Namespace) -> int:
-    """Remove workspace directory (with confirmation)."""
-    workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+    """Remove workspace directory (with confirmation) with enhanced styling."""
+    workspace = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+    
     if not workspace.exists():
-        print("No workspace found at", workspace, "- nothing to uninstall.")
+        print(style.warning(f"Workspace directory does not exist: {workspace}"))
         return 0
+    
+    print(style.header("MiniClaw Uninstall"))
+    print(f"Workspace directory: {workspace}")
+    
+    # Show what will be removed
+    print(style.sub_section("Contents to be removed:"))
+    try:
+        for item in workspace.iterdir():
+            if item.is_dir():
+                print(f"  {style.list_item(f'{item.name}/')}")
+            else:
+                print(f"  {style.list_item(item.name)}")
+    except Exception:
+        print(style.warning("Could not list directory contents"))
+    
+    # Confirm removal
+    if not getattr(args, "yes", False):
+        print(f"\n{style.warning('This action cannot be undone!')}")
+        confirm = input(f"{style.bold('Are you sure you want to remove the workspace? (type \'YES\' to confirm): ')} ").strip()
+        if confirm != "YES":
+            print(style.info("Uninstall cancelled."))
+            return 0
+    
+    # Remove workspace
+    try:
+        import shutil
+        shutil.rmtree(workspace)
+        print(style.success(f"Workspace removed successfully: {workspace}"))
+        print(style.info("You can reinstall MiniClaw at any time with 'miniclaw install'"))
+    except Exception as e:
+        print(style.error(f"Failed to remove workspace: {e}"))
+        return 1
+    
+    return 0
     if not getattr(args, "yes", False):
         try:
             reply = input(f"Remove {workspace} and all its contents? [y/N]: ").strip().lower()
@@ -190,7 +160,7 @@ def run_uninstall(args: argparse.Namespace) -> int:
 
 
 def run_doctor(args: argparse.Namespace) -> int:
-    """Check Python, workspace, config, Ollama, and optional server."""
+    """Check Python, workspace, config, Ollama, and optional server with enhanced styling."""
     workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
     base_url = getattr(args, "base_url", None) or os.getenv("MINICLAW_URL", "http://127.0.0.1:8787")
     checks: List[Tuple[str, bool, str]] = []
@@ -244,60 +214,85 @@ def run_doctor(args: argparse.Namespace) -> int:
         except Exception as e2:
             checks.append(("Ollama reachable", False, str(e2)))
 
-    print("MiniClaw doctor")
+    print(style.header("MiniClaw System Doctor"))
     print("=" * 50)
     for name, ok, msg in checks:
-        status = "OK" if ok else "FAIL"
-        print(f"  [{status}] {name}: {msg}")
+        status_icon = style.success("OK") if ok else style.error("FAIL")
+        print(f"  {status_icon} {name}: {msg}")
     all_ok = all(c[1] for c in checks)
     print("=" * 50)
-    print("All checks passed." if all_ok else "Some checks failed. Run 'install' or fix config.")
+    if all_ok:
+        print(style.success("All checks passed!"))
+    else:
+        print(style.warning("Some checks failed. Run 'miniclaw install' or fix config."))
     return 0 if all_ok else 1
 
 
 def run_update(args: argparse.Namespace) -> int:
-    """Update dependencies and optionally config defaults."""
+    """Update dependencies and optionally config defaults with enhanced styling."""
+    from miniclaw.cli_utils import CLIProgressBar
+    
     workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
-    print("MiniClaw update")
+    print(style.header("MiniClaw Update"))
     project_dir = Path(__file__).resolve().parent
     req_file = project_dir / "requirements.txt"
     updated = False
+    
     if req_file.exists():
         uv_cmd = shutil.which("uv")
         if uv_cmd:
             try:
-                subprocess.run(
-                    [uv_cmd, "pip", "install", "-U", "-r", str(req_file)],
-                    cwd=str(project_dir),
-                    check=True,
-                    capture_output=False,
-                )
-                print("Dependencies updated (uv pip install -U -r requirements.txt)")
+                print(style.info("Updating dependencies with uv..."))
+                # Show progress for dependency update
+                progress = CLIProgressBar(100, prefix='Progress:', suffix='Complete', length=30)
+                progress.update(20)
+                
+                subprocess.run([uv_cmd, "pip", "install", "-r", str(req_file)], check=True)
+                progress.update(80)
                 updated = True
-            except subprocess.CalledProcessError as e:
-                print("uv pip update failed:", e, file=sys.stderr)
-        if not updated:
-            try:
-                subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "-U", "-r", str(req_file)],
-                    check=True,
-                    capture_output=False,
-                )
-                print("Dependencies updated from requirements.txt")
-                updated = True
-            except subprocess.CalledProcessError as e:
-                print("pip update failed:", e, file=sys.stderr)
-    if not updated:
-        try:
-            subprocess.run([sys.executable, "-m", "pip", "install", "-U", "miniclaw"], check=True, capture_output=False)
-            print("Package miniclaw updated (if installed via pip)")
-        except subprocess.CalledProcessError:
-            if not updated:
-                print("No requirements to update. Use: uv sync  or  pip install -U -r requirements.txt")
+                progress.finish()
+                print(style.success("Dependencies updated successfully"))
+            except subprocess.CalledProcessError:
+                print(style.error("Failed to update dependencies with uv"))
+        else:
+            pip_cmd = shutil.which("pip")
+            if pip_cmd:
+                try:
+                    print(style.info("Updating dependencies with pip..."))
+                    # Show progress for dependency update
+                    progress = CLIProgressBar(100, prefix='Progress:', suffix='Complete', length=30)
+                    progress.update(20)
+                    
+                    subprocess.run([pip_cmd, "install", "-r", str(req_file)], check=True)
+                    progress.update(80)
+                    updated = True
+                    progress.finish()
+                    print(style.success("Dependencies updated successfully"))
+                except subprocess.CalledProcessError:
+                    print(style.error("Failed to update dependencies with pip"))
+            else:
+                print(style.warning("Neither uv nor pip found. Skipping dependency update."))
+    
+    # Update config defaults
     config_path = workspace / "miniclaw_config.json"
     if config_path.exists():
-        print("Config at", config_path, "- merge new defaults manually if needed.")
-    print("Update complete. Run: miniclaw_cli.py doctor")
+        try:
+            from miniclaw.config import ConfigStore
+            from miniclaw.events import EventLog
+            
+            print(style.info("Updating config defaults..."))
+            event_log = EventLog()
+            config_store = ConfigStore(config_path, event_log)
+            config_store.save(config_store.get())  # This will apply defaults
+            print(style.success("Config defaults updated"))
+        except Exception as e:
+            print(style.warning(f"Could not update config defaults: {e}"))
+    
+    if updated:
+        print(style.success("Update completed successfully!"))
+    else:
+        print(style.info("No updates were performed."))
+    
     return 0
 
 
@@ -317,10 +312,10 @@ def run_cli() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("health", help="Check /api/health")
-    setup_p = sub.add_parser("setup", help="Run the interactive setup wizard")
-    install_p = sub.add_parser("install", help="Create workspace and guide through prerequisites")
+    install_p = sub.add_parser("install", help="Create workspace and guide through prerequisites with interactive setup")
     install_p.set_defaults(_install_yes=False)
     onboard_p = sub.add_parser("onboard", help="Initialize config & workspace (alias: install)")
+    uninstall_p = sub.add_parser("uninstall", help="Remove workspace directory")
     uninstall_p = sub.add_parser("uninstall", help="Remove workspace directory")
     uninstall_p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
     doctor_p = sub.add_parser("doctor", help="Check Python, workspace, config, Ollama, server")
@@ -427,52 +422,114 @@ def run_cli() -> int:
     tg_pair_reject.add_argument("--request-id", required=True)
     tg_sub.add_parser("unbind", help="Remove currently bound Telegram chat")
 
-    scheduler = sub.add_parser("scheduler", help="Scheduler operations")
-    sched_sub = scheduler.add_subparsers(dest="scheduler_command", required=True)
-    sched_sub.add_parser("status", help="Get scheduler status")
-    sched_save = sched_sub.add_parser("save", help="Create or update scheduler job")
-    sched_save.add_argument("--id", required=True, help="Job id")
-    sched_save.add_argument("--name", required=True, help="Job name")
-    sched_save.add_argument("--prompt", required=True, help="Job prompt")
-    sched_save.add_argument("--interval", type=int, default=300, help="Interval seconds")
-    sched_save.add_argument("--disabled", action="store_true", help="Save as disabled")
-    sched_save.add_argument("--telegram-chat-id", default="", help="Optional Telegram chat id for job output")
-    sched_delete = sched_sub.add_parser("delete", help="Delete scheduler job")
-    sched_delete.add_argument("--id", required=True, help="Job id")
-    sched_run = sched_sub.add_parser("run", help="Trigger scheduler job now")
-    sched_run.add_argument("--id", required=True, help="Job id")
+    jobs = sub.add_parser("jobs", help="Job operations")
+    jobs_sub = jobs.add_subparsers(dest="jobs_command", required=True)
+    jobs_sub.add_parser("status", help="Get jobs status")
+    jobs_save = jobs_sub.add_parser("save", help="Create or update job")
+    jobs_save.add_argument("--id", required=True, help="Job id")
+    jobs_save.add_argument("--name", required=True, help="Job name")
+    jobs_save.add_argument("--prompt", required=True, help="Job prompt")
+    jobs_save.add_argument("--interval", type=int, default=300, help="Interval seconds")
+    jobs_save.add_argument("--disabled", action="store_true", help="Save as disabled")
+    jobs_save.add_argument("--telegram-chat-id", default="", help="Optional Telegram chat id for job output")
+    jobs_delete = jobs_sub.add_parser("delete", help="Delete job")
+    jobs_delete.add_argument("--id", required=True, help="Job id")
+    jobs_run = jobs_sub.add_parser("run", help="Trigger job now")
+    jobs_run.add_argument("--id", required=True, help="Job id")
 
     args = parser.parse_args()
     base_url = args.base_url
-    if args.command == "setup":
-        return run_setup_wizard()
     if args.command == "install":
         return run_install(args)
     if args.command == "onboard":
         return run_install(args)
     if args.command == "uninstall":
         return run_uninstall(args)
-    if args.command == "doctor":
-        return run_doctor(args)
+        if args.command == "doctor" or args.command == "status":
+            print(style.header("MiniClaw System Status"))
+            
+            # Check Python version
+            print(style.sub_section("Python Environment"))
+            print(f"  Version: {sys.version.split()[0]}")
+            print(f"  Executable: {sys.executable}")
+            
+            # Check workspace
+            print(style.sub_section("Workspace"))
+            workspace = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+            if workspace.exists():
+                print(style.success(f"  Workspace exists: {workspace}"))
+            else:
+                print(style.warning(f"  Workspace not found: {workspace}"))
+            
+            # Check config
+            config_path = workspace / "miniclaw_config.json"
+            if config_path.exists():
+                print(style.success(f"  Config file exists: {config_path}"))
+            else:
+                print(style.warning(f"  Config file not found: {config_path}"))
+            
+            # Check Ollama
+            print(style.sub_section("AI Providers"))
+            try:
+                result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    print(style.success(f"  Ollama: {result.stdout.strip()}"))
+                else:
+                    print(style.warning("  Ollama: Not running or not accessible"))
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                print(style.warning("  Ollama: Not installed"))
+            
+            # Check server
+            print(style.sub_section("Server Status"))
+            try:
+                health_result = request_json(base_url, "/api/health")
+                if health_result.get("ok"):
+                    print(style.success("  Server: Running"))
+                else:
+                    print(style.warning("  Server: Not responding"))
+            except Exception:
+                print(style.warning("  Server: Not running"))
+            
+            print(f"\n{style.info('Run ' + style.code('miniclaw install') + ' to set up or repair your installation.')}")
+            return 0
     if args.command == "status":
         return run_doctor(args)
     if args.command == "update":
         return run_update(args)
-    if args.command == "gateway":
-        if getattr(args, "host", None):
-            os.environ["MINICLAW_HOST"] = str(args.host)
-        if getattr(args, "port", None) is not None:
-            os.environ["MINICLAW_PORT"] = str(args.port)
-        from miniclaw import run
-        run()
-        return 0
+        if args.command == "gateway":
+            if getattr(args, "host", None):
+                os.environ["MINICLAW_HOST"] = str(args.host)
+            if getattr(args, "port", None) is not None:
+                os.environ["MINICLAW_PORT"] = str(args.port)
+            
+            print(style.header("Starting MiniClaw Server"))
+            print(style.info("Initializing services..."))
+            
+            # Show startup progress
+            print(f"{style.list_item('Loading configuration')}")
+            print(f"{style.list_item('Initializing services')}")
+            print(f"{style.list_item('Starting HTTP server')}")
+            
+            from miniclaw import run
+            try:
+                print(style.success("Server started successfully!"))
+                print(style.info("Press Ctrl+C to stop the server"))
+                run()
+            except KeyboardInterrupt:
+                print(f"\n{style.info('Server stopped by user')}")
+            except Exception as e:
+                print(style.error(f"Server error: {e}"))
+                return 1
+            return 0
     if args.command == "agent":
         message = (getattr(args, "agent_message", None) or getattr(args, "message_pos", None) or "").strip()
         if getattr(args, "stdin", False):
             message = sys.stdin.read().strip()
         if not message:
-            print("Usage: miniclaw agent -m \"Your message\"  or  miniclaw agent \"Your message\"", file=sys.stderr)
+            print(style.error("Usage: miniclaw agent -m \"Your message\"  or  miniclaw agent \"Your message\""))
             return 1
+        
+        print(style.info("Sending message to MiniClaw..."))
         result = request_json(
             base_url,
             "/api/chat",
@@ -483,32 +540,142 @@ def run_cli() -> int:
                 "provider_id": getattr(args, "provider", "") or "",
             },
         )
-        if getattr(args, "json", False):
-            print_json(result)
+        
+        if result.get("ok"):
+            if getattr(args, "json", False):
+                print_json(result)
+            else:
+                response = result.get("response", "")
+                print(f"\n{style.section('Response:')}")
+                print(response)
+                duration = result.get("duration_seconds", 0)
+                print(f"\n{style.dim(f'Duration: {duration:.2f}s')}")
         else:
-            print(result.get("response", ""))
+            print(style.error(f"Failed to send message: {result.get('error', 'Unknown error')}"))
         return 0
 
     try:
         if args.command == "health":
-            print_json(request_json(base_url, "/api/health"))
+            result = request_json(base_url, "/api/health")
+            if result.get("ok"):
+                print(style.success("Health check passed"))
+                print(f"  Timestamp: {result.get('timestamp', 'N/A')}")
+            else:
+                print(style.error("Health check failed"))
+                print(f"  Error: {result.get('error', 'Unknown error')}")
             return 0
 
         if args.command == "models":
             provider_q = f"?provider_id={urllib.parse.quote(args.provider)}" if args.provider else ""
-            print_json(request_json(base_url, f"/api/models{provider_q}"))
+            result = request_json(base_url, f"/api/models{provider_q}")
+            if result.get("ok"):
+                provider_info = result.get("provider", {})
+                models = result.get("models", [])
+                
+                print(style.section(f"Models ({provider_info.get('name', 'Unknown')} - {provider_info.get('id', 'N/A')})"))
+                print(f"Base URL: {provider_info.get('base_url', 'N/A')}")
+                print(f"Model: {provider_info.get('model', 'N/A')}")
+                
+                if models:
+                    print(f"\n{style.sub_section('Available Models:')}")
+                    for model in models:
+                        print(f"  {style.list_item(model)}")
+                else:
+                    print(style.warning("No models available"))
+            else:
+                print(style.error(f"Failed to fetch models: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "usage":
-            print_json(request_json(base_url, f"/api/usage?limit={int(args.limit)}"))
+            result = request_json(base_url, f"/api/usage?limit={int(args.limit)}")
+            if result.get("ok"):
+                usage_data = result.get("usage", {})
+                print(style.section("Token Usage Summary"))
+                
+                # Show total usage
+                total_input = usage_data.get("total_input_tokens", 0)
+                total_output = usage_data.get("total_output_tokens", 0)
+                total_cost = usage_data.get("estimated_cost_usd", 0)
+                
+                print(f"Total Input Tokens:  {style.highlight(str(total_input))}")
+                print(f"Total Output Tokens: {style.highlight(str(total_output))}")
+                if total_cost > 0:
+                    print(f"Estimated Cost:      {style.highlight(f'${total_cost:.4f}')}")
+                
+                # Show recent usage
+                recent = usage_data.get("recent_usage", [])
+                if recent:
+                    print(f"\n{style.sub_section('Recent Usage:')}")
+                    for item in recent[:10]:  # Show top 10
+                        timestamp = item.get("timestamp", "")[:19]  # Truncate to readable format
+                        model = item.get("model", "unknown")
+                        input_tokens = item.get("input_tokens", 0)
+                        output_tokens = item.get("output_tokens", 0)
+                        print(f"  {timestamp} | {style.dim(model)} | "
+                              f"in: {input_tokens} out: {output_tokens}")
+            else:
+                print(style.error(f"Failed to fetch usage: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "runtime":
-            print_json(request_json(base_url, "/api/runtime"))
+            result = request_json(base_url, "/api/runtime")
+            if result.get("ok"):
+                runtime_data = result.get("runtime", {})
+                print(style.section("Runtime Information"))
+                
+                # Basic info
+                print(f"Config Path:    {runtime_data.get('config_path', 'N/A')}")
+                print(f"Workspace:      {runtime_data.get('skills_dir', 'N/A').replace('/skills', '')}")
+                
+                # Services status
+                telegram_status = runtime_data.get("telegram", {})
+                jobs_status = runtime_data.get("jobs", {})
+                
+                print(f"\n{style.sub_section('Services Status:')}")
+                telegram_enabled = "Enabled" if telegram_status.get("enabled", False) else "Disabled"
+                jobs_enabled = "Enabled" if jobs_status.get("enabled", False) else "Disabled"
+                print(f"  Telegram: {telegram_enabled}")
+                print(f"  Jobs:     {jobs_enabled}")
+                
+                # Providers
+                providers = runtime_data.get("providers", {}).get("items", [])
+                if providers:
+                    print(f"\n{style.sub_section('AI Providers:')}")
+                    for provider in providers:
+                        status = "Enabled" if provider.get("enabled", False) else "Disabled"
+                        print(f"  {provider.get('name', 'Unknown')} ({provider.get('type', 'unknown')}): {status}")
+                        print(f"    Model: {provider.get('model', 'N/A')}")
+                
+                # Loaded components
+                skills_count = len(runtime_data.get("loaded_skills", []))
+                plugins_count = len(runtime_data.get("loaded_plugins", []))
+                print(f"\n{style.sub_section('Loaded Components:')}")
+                print(f"  Skills:  {skills_count}")
+                print(f"  Plugins: {plugins_count}")
+                
+            else:
+                print(style.error(f"Failed to fetch runtime info: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "skills":
-            print_json(request_json(base_url, "/api/skills"))
+            result = request_json(base_url, "/api/skills")
+            if result.get("ok"):
+                skills = result.get("skills", [])
+                print(style.section(f"Skills ({len(skills)} loaded)"))
+                
+                if skills:
+                    for skill in skills:
+                        status = "Enabled" if skill.get("enabled", True) else "Disabled"
+                        status_icon = style.success("") if skill.get("enabled", True) else style.warning("")
+                        print(f"\n{style.highlight(skill.get('id', 'unknown'))} {status_icon}")
+                        print(f"  Title: {skill.get('title', 'N/A')}")
+                        print(f"  Path:  {skill.get('path', 'N/A')}")
+                        if skill.get("keywords"):
+                            print(f"  Keywords: {', '.join(skill.get('keywords', []))}")
+                else:
+                    print(style.info("No skills loaded"))
+            else:
+                print(style.error(f"Failed to fetch skills: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "skill-save":
@@ -547,7 +714,10 @@ def run_cli() -> int:
             else:
                 message = (args.message or "").strip()
             if not message:
-                raise RuntimeError("Message is empty. Provide a message or use --stdin.")
+                print(style.error("Message is empty. Provide a message or use --stdin."))
+                return 1
+            
+            print(style.info("Sending message to MiniClaw..."))
             result = request_json(
                 base_url,
                 "/api/chat",
@@ -558,24 +728,110 @@ def run_cli() -> int:
                     "provider_id": args.provider or "",
                 },
             )
-            if args.json:
-                print_json(result)
+            
+            if result.get("ok"):
+                if args.json:
+                    print_json(result)
+                else:
+                    response = result.get("response", "")
+                    print(f"\n{style.section('Response:')}")
+                    print(response)
+                    duration = result.get("duration_seconds", 0)
+                    print(f"\n{style.dim(f'Duration: {duration:.2f}s')}")
             else:
-                print(result.get("response", ""))
+                print(style.error(f"Failed to send message: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "history":
-            print_json(request_json(base_url, f"/api/history?limit={int(args.limit)}"))
+            result = request_json(base_url, f"/api/history?limit={int(args.limit)}")
+            if result.get("ok"):
+                history_items = result.get("history", [])
+                print(style.section(f"Chat History ({len(history_items)} items)"))
+                
+                for item in history_items:
+                    timestamp = item.get("timestamp", "")[:19]  # Truncate to readable format
+                    role = item.get("role", "unknown")
+                    content = item.get("content", "")[:100] + "..." if len(item.get("content", "")) > 100 else item.get("content", "")
+                    
+                    role_style = style.success if role == "assistant" else style.info
+                    print(f"\n{role_style(role.upper())} [{timestamp}]")
+                    print(f"  {content}")
+            else:
+                print(style.error(f"Failed to fetch history: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "events":
             url = f"/api/events?since_id={int(args.since_id)}&limit={int(args.limit)}"
-            print_json(request_json(base_url, url))
+            result = request_json(base_url, url)
+            if result.get("ok"):
+                events = result.get("events", [])
+                print(style.section(f"Events ({len(events)} items)"))
+                print(f"Latest ID: {result.get('latest_id', 'N/A')}")
+                
+                for event in events:
+                    timestamp = event.get("timestamp", "")[:19]  # Truncate to readable format
+                    event_type = event.get("type", "unknown")
+                    message = event.get("message", "")
+                    
+                    print(f"\n{style.highlight(event_type)} [{timestamp}]")
+                    if message:
+                        print(f"  {message}")
+                    if event.get("data"):
+                        print(f"  Data: {event.get('data')}")
+            else:
+                print(style.error(f"Failed to fetch events: {result.get('error', 'Unknown error')}"))
             return 0
 
         if args.command == "memory":
             if args.memory_command == "list":
-                print_json(request_json(base_url, "/api/memory"))
+                result = request_json(base_url, "/api/memory")
+                if result.get("ok"):
+                    files = result.get("files", [])
+                    config = result.get("config", {})
+                    print(style.section(f"Memory Files ({len(files)} files)"))
+                    print(f"Config: {config}")
+                    for file in files:
+                        print(f"  {style.list_item(file)}")
+                else:
+                    print(style.error(f"Failed to list memory files: {result.get('error', 'Unknown error')}"))
+                return 0
+
+            if args.memory_command == "get":
+                path = f"/api/memory?name={urllib.parse.quote(args.name)}"
+                result = request_json(base_url, path)
+                if result.get("ok"):
+                    file_data = result.get("file", {})
+                    files_list = result.get("files", [])
+                    print(style.section(f"Memory File: {file_data.get('name', 'unknown')}"))
+                    print(f"Path: {file_data.get('path', 'N/A')}")
+                    print(f"Size: {file_data.get('size', 0)} bytes")
+                    print(f"\n{style.sub_section('Content:')}")
+                    print(file_data.get("content", ""))
+                else:
+                    print(style.error(f"Failed to get memory file: {result.get('error', 'Unknown error')}"))
+                return 0
+
+            if args.memory_command == "save":
+                if bool(args.file) == bool(args.stdin):
+                    print(style.error("Use exactly one of --file or --stdin for memory save"))
+                    return 1
+                content = read_text_file(args.file) if args.file else sys.stdin.read()
+                if not content.strip():
+                    print(style.error("Memory content is empty"))
+                    return 1
+                result = request_json(
+                    base_url,
+                    "/api/memory/save",
+                    method="POST",
+                    payload={"name": args.name, "content": content},
+                )
+                if result.get("ok"):
+                    saved_file = result.get("file", {})
+                    files_list = result.get("files", [])
+                    print(style.success(f"Memory file '{saved_file.get('name', args.name)}' saved successfully"))
+                    print(f"Total files: {len(files_list)}")
+                else:
+                    print(style.error(f"Failed to save memory file: {result.get('error', 'Unknown error')}"))
                 return 0
 
             if args.memory_command == "get":
@@ -599,26 +855,53 @@ def run_cli() -> int:
 
         if args.command == "config":
             if args.config_command == "get":
-                print_json(request_json(base_url, "/api/config"))
+                result = request_json(base_url, "/api/config")
+                if result.get("ok"):
+                    print(style.section("Current Configuration"))
+                    print_json(result.get("config", {}))
+                else:
+                    print(style.error(f"Failed to get config: {result.get('error', 'Unknown error')}"))
                 return 0
 
             if args.config_command == "set":
-                payload = json.loads(read_text_file(args.file))
+                try:
+                    payload = json.loads(read_text_file(args.file))
+                except json.JSONDecodeError as e:
+                    print(style.error(f"Invalid JSON in config file: {e}"))
+                    return 1
                 if not isinstance(payload, dict):
-                    raise RuntimeError("Config file must contain a JSON object")
-                print_json(request_json(base_url, "/api/config", method="PUT", payload=payload))
+                    print(style.error("Config file must contain a JSON object"))
+                    return 1
+                result = request_json(base_url, "/api/config", method="PUT", payload=payload)
+                if result.get("ok"):
+                    print(style.success("Configuration updated successfully"))
+                    print(style.info("Restart the server for changes to take effect"))
+                else:
+                    print(style.error(f"Failed to update config: {result.get('error', 'Unknown error')}"))
                 return 0
 
             if args.config_command == "raw-get":
-                data = request_json(base_url, "/api/config/raw")
-                print(data.get("raw", ""), end="")
+                result = request_json(base_url, "/api/config/raw")
+                if result.get("ok"):
+                    print(result.get("raw", ""), end="")
+                else:
+                    print(style.error(f"Failed to get raw config: {result.get('error', 'Unknown error')}"))
                 return 0
 
             if args.config_command == "raw-set":
                 if bool(args.file) == bool(args.stdin):
-                    raise RuntimeError("Use exactly one of --file or --stdin for raw-set")
-                raw = read_text_file(args.file) if args.file else sys.stdin.read()
-                print_json(request_json(base_url, "/api/config/raw", method="PUT", raw_body=raw))
+                    print(style.error("Use exactly one of --file or --stdin for raw-set"))
+                    return 1
+                try:
+                    raw = read_text_file(args.file) if args.file else sys.stdin.read()
+                except Exception as e:
+                    print(style.error(f"Failed to read input: {e}"))
+                    return 1
+                result = request_json(base_url, "/api/config/raw", method="PUT", raw_body=raw)
+                if result.get("ok"):
+                    print(style.success("Raw configuration updated successfully"))
+                else:
+                    print(style.error(f"Failed to update raw config: {result.get('error', 'Unknown error')}"))
                 return 0
 
         if args.command == "plugins":
@@ -786,49 +1069,88 @@ def run_cli() -> int:
                 )
                 return 0
 
-        if args.command == "scheduler":
-            if args.scheduler_command == "status":
-                print_json(request_json(base_url, "/api/scheduler"))
+        if args.command == "jobs":
+            if args.jobs_command == "status":
+                result = request_json(base_url, "/api/jobs")
+                if result.get("ok"):
+                    jobs_data = result.get("jobs", {})
+                    print(style.section("Jobs Status"))
+                    
+                    status = "Running" if jobs_data.get("running", False) else "Stopped"
+                    enabled = "Enabled" if jobs_data.get("enabled", False) else "Disabled"
+                    print(f"Service Status: {status}")
+                    print(f"Configuration:  {enabled}")
+                    
+                    jobs_list = jobs_data.get("jobs", [])
+                    if jobs_list:
+                        print(f"\n{style.sub_section(f'Scheduled Jobs ({len(jobs_list)}):')}")
+                        for job in jobs_list:
+                            status_icon = style.success("✓") if job.get("enabled", False) else style.warning("⚠")
+                            inflight = " (running)" if job.get("inflight", False) else ""
+                            print(f"  {status_icon} {style.highlight(job.get('id', 'unknown'))}{inflight}")
+                            print(f"    Name: {job.get('name', 'N/A')}")
+                            print(f"    Interval: {job.get('interval_seconds', 0)}s")
+                            if job.get("next_run_at"):
+                                print(f"    Next Run: {job.get('next_run_at', 'N/A')}")
+                    else:
+                        print(style.info("No jobs configured"))
+                else:
+                    print(style.error(f"Failed to fetch jobs status: {result.get('error', 'Unknown error')}"))
                 return 0
 
-            if args.scheduler_command == "save":
-                print_json(
-                    request_json(
-                        base_url,
-                        "/api/scheduler/upsert",
-                        method="POST",
-                        payload={
-                            "id": args.id,
-                            "name": args.name,
-                            "prompt": args.prompt,
-                            "interval_seconds": int(args.interval),
-                            "enabled": not bool(args.disabled),
-                            "send_to_telegram_chat_id": args.telegram_chat_id,
-                        },
-                    )
+            if args.jobs_command == "save":
+                result = request_json(
+                    base_url,
+                    "/api/jobs/upsert",
+                    method="POST",
+                    payload={
+                        "id": args.id,
+                        "name": args.name,
+                        "prompt": args.prompt,
+                        "interval_seconds": int(args.interval),
+                        "enabled": not bool(args.disabled),
+                        "send_to_telegram_chat_id": args.telegram_chat_id,
+                    },
                 )
+                if result.get("ok"):
+                    print(style.success(f"Job '{args.id}' saved successfully"))
+                    job = result.get("job", {})
+                    print(f"  Name: {job.get('name', 'N/A')}")
+                    print(f"  Interval: {job.get('interval_seconds', 0)}s")
+                    status = "Enabled" if job.get("enabled", True) else "Disabled"
+                    print(f"  Status: {status}")
+                else:
+                    print(style.error(f"Failed to save job: {result.get('error', 'Unknown error')}"))
                 return 0
 
-            if args.scheduler_command == "delete":
-                print_json(
-                    request_json(
-                        base_url,
-                        "/api/scheduler/delete",
-                        method="POST",
-                        payload={"id": args.id},
-                    )
+            if args.jobs_command == "delete":
+                result = request_json(
+                    base_url,
+                    "/api/jobs/delete",
+                    method="POST",
+                    payload={"id": args.id},
                 )
+                if result.get("ok"):
+                    print(style.success(f"Job '{args.id}' deleted successfully"))
+                else:
+                    print(style.error(f"Failed to delete job: {result.get('error', 'Unknown error')}"))
                 return 0
 
-            if args.scheduler_command == "run":
-                print_json(
-                    request_json(
-                        base_url,
-                        "/api/scheduler/run",
-                        method="POST",
-                        payload={"id": args.id},
-                    )
+            if args.jobs_command == "run":
+                result = request_json(
+                    base_url,
+                    "/api/jobs/run",
+                    method="POST",
+                    payload={"id": args.id},
                 )
+                if result.get("ok"):
+                    run_result = result.get("result", {})
+                    if run_result.get("started", False):
+                        print(style.success(f"Job '{args.id}' started successfully"))
+                    else:
+                        print(style.warning(f"Job '{args.id}' not started: {run_result.get('reason', 'Unknown reason')}"))
+                else:
+                    print(style.error(f"Failed to run job: {result.get('error', 'Unknown error')}"))
                 return 0
 
         raise RuntimeError("Unhandled command")

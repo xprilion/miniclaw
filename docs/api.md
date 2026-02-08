@@ -2,6 +2,8 @@
 
 This document describes the RESTful API endpoints available in MiniClaw.
 
+> **Note**: Every API endpoint has a corresponding CLI command. See [CLI Documentation](cli.md) for detailed command reference.
+
 ## Base URL
 
 All endpoints are relative to the server base URL, typically `http://127.0.0.1:8787`.
@@ -365,17 +367,17 @@ Reload all plugins.
 }
 ```
 
-### Scheduler
+### Jobs
 
-#### `GET /api/scheduler`
+#### `GET /api/jobs`
 
-Get scheduler status.
+Get jobs status.
 
 **Response:**
 ```json
 {
   "ok": true,
-  "scheduler": {
+  "jobs": {
     "enabled": true,
     "running": true,
     "next_runs": [
@@ -389,9 +391,9 @@ Get scheduler status.
 }
 ```
 
-#### `POST /api/scheduler/upsert`
+#### `POST /api/jobs/upsert`
 
-Create or update a scheduler job.
+Create or update a job.
 
 **Request Body:**
 ```json
@@ -417,15 +419,15 @@ Create or update a scheduler job.
     "enabled": true,
     "send_to_telegram_chat_id": ""
   },
-  "scheduler": {
-    // updated scheduler status
+  "jobs": {
+    // updated jobs status
   }
 }
 ```
 
-#### `POST /api/scheduler/delete`
+#### `POST /api/jobs/delete`
 
-Delete a scheduler job.
+Delete a job.
 
 **Request Body:**
 ```json
@@ -441,15 +443,15 @@ Delete a scheduler job.
   "deleted": {
     "id": "daily_report"
   },
-  "scheduler": {
-    // updated scheduler status
+  "jobs": {
+    // updated jobs status
   }
 }
 ```
 
-#### `POST /api/scheduler/run`
+#### `POST /api/jobs/run`
 
-Trigger a scheduler job immediately.
+Trigger a job immediately.
 
 **Request Body:**
 ```json
@@ -465,8 +467,8 @@ Trigger a scheduler job immediately.
   "result": {
     // job execution result
   },
-  "scheduler": {
-    // updated scheduler status
+  "jobs": {
+    // updated jobs status
   }
 }
 ```
@@ -751,8 +753,8 @@ Get runtime information.
     "telegram": {
       // telegram service status
     },
-    "scheduler": {
-      // scheduler status
+    "jobs": {
+      // jobs status
     }
   }
 }

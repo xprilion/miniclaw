@@ -26,11 +26,19 @@ MiniClaw Enhanced is a production-ready, safe, and minimal AI agent infrastructu
 ### 4. Infrastructure
 - **Configuration Management**: JSON-based config with environment variable overrides
 - **Event Logging**: Comprehensive event tracking and monitoring
-- **Scheduler**: Recurring job execution with Telegram notifications
+- **Jobs**: Recurring task execution with Telegram notifications
 - **Plugin System**: Extensible architecture for custom functionality
 - **MCP Integration**: Model Control Protocol support for external tools
 
-### 5. Security & Safety
+### 5. Command Line Interface
+- **Enhanced Styling**: Color-coded output with consistent design language
+- **Interactive Navigation**: Step-by-step guidance for complex operations
+- **Progress Indicators**: Visual feedback during long-running operations
+- **Structured Output**: Organized presentation of information
+- **Helpful Error Messages**: Context-aware error handling with guidance
+- **Full API Parity**: CLI access to all web UI functionality
+
+### 6. Security & Safety
 - **Sandboxing**: Controlled execution environment for tools
 - **Permission System**: Fine-grained access controls for all operations
 - **Input Validation**: Strict validation of all user inputs

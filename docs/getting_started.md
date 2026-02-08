@@ -115,24 +115,47 @@ The main configuration file is located at `~/.miniclaw/miniclaw_config.json`. Ke
 - **tools**: Tool execution permissions and limits
 - **telegram**: Telegram bot configuration
 - **memory**: Memory file settings
-- **scheduler**: Automated task scheduling
+- **jobs**: Automated task management
 
 ## Next Steps
 
 After setup, try these commands:
 
 ```bash
-# Check system status
+# Check system status with enhanced output
 miniclaw status
 
-# Chat with the agent
+# Chat with the agent with styled responses
 miniclaw agent -m "What can you help me with?"
 
-# List available skills
+# List available skills with organized output
 miniclaw skills
 
-# Check token usage
+# Check token usage with detailed statistics
 miniclaw usage
+
+# View system events with structured formatting
+miniclaw events
 ```
 
-For more detailed information, see the [full documentation](./architecture.md).
+For more detailed information about all CLI commands, see the [CLI Documentation](cli.md).
+
+## Enhanced Features
+
+MiniClaw now includes several enhanced features:
+
+### Interactive Setup Wizard
+The enhanced setup wizard provides step-by-step guidance with:
+- Colorful, styled output
+- Navigation between setup steps
+- KeyDB automatic installation
+- Configuration review before applying
+
+### Consistent CLI Styling
+All commands feature:
+- Color-coded success/error/warning messages
+- Structured data presentation
+- Progress indicators for long operations
+- Helpful error messages with context
+
+For details on the CLI styling system, see [CLI Styling System](cli_styling.md).

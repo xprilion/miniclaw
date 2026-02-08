@@ -45,7 +45,7 @@ WEB_ROUTES: Dict[str, str] = {
     "/chat": "index.html",
     "/setup": "index.html",
     "/skills": "index.html",
-    "/scheduler": "index.html",
+    "/jobs": "index.html",
     "/monitoring": "index.html",
     "/transparency": "index.html",
 }
@@ -74,7 +74,7 @@ DEFAULT_SKILL_TEMPLATES: Dict[str, str] = {
     ),
 }
 
-DEFAULT_SCHEDULER_JOBS: List[Dict[str, Any]] = [
+DEFAULT_JOBS: List[Dict[str, Any]] = [
     {
         "id": "health_digest",
         "name": "Health Digest",

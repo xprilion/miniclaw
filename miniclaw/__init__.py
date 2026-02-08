@@ -12,7 +12,7 @@ from .util import LOGGER, setup_logging
 
 
 def run() -> None:
-    """Start the HTTP server and all services (Telegram, scheduler)."""
+    """Start the HTTP server and all services (Telegram, jobs)."""
     setup_logging()
     state = AppState()
     config = state.config_store.get()
@@ -43,7 +43,7 @@ def run() -> None:
         LOGGER.info("Keyboard interrupt received; shutting down")
         print("\nShutting down MiniClaw...")
     finally:
-        state.scheduler.stop()
+        state.job_service.stop()
         state.telegram.stop()
         server.server_close()
         LOGGER.info("MiniClaw server stopped")
