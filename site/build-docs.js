@@ -21,6 +21,11 @@ markdownFiles.forEach(file => {
     const title = fileName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     docNavHtml += `  <li><a href="#" data-doc="${fileName}">${title}</a></li>\n`;
     docLinks.push({ id: fileName, title: title, file: file });
+    
+    // Copy the markdown file to site/docs
+    const sourcePath = path.join(sourceDocsDir, file);
+    const destPath = path.join(docsDir, file);
+    fs.copyFileSync(sourcePath, destPath);
 });
 docNavHtml += '</ul>';
 
@@ -31,3 +36,4 @@ console.log('Documentation navigation generated:');
 console.log(docNavHtml);
 console.log('\nDocument links:');
 console.log(JSON.stringify(docLinks, null, 2));
+console.log('\nDocumentation files copied to site/docs/');
