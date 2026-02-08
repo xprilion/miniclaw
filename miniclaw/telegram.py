@@ -427,7 +427,7 @@ class TelegramService:
                             }
                             self._pairing_requests[request_id] = request_payload
                             reply_text = ("Pairing request received. Ask an admin to confirm it "
-                                         "in MiniClaw Setup or CLI.")
+                                          "in MiniClaw Setup or CLI.")
                             event_type = "telegram.pairing.requested"
                             event_message = "Received Telegram pairing request"
                             event_details = {

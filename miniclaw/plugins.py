@@ -166,7 +166,7 @@ class PluginRegistry:
                 hook = getattr(module, "post_response", None)
             if not callable(hook):
                 self._event_log.add("plugin.post_response.skip", "Plugin has no post_response hook",
-                                   {"plugin": plugin_id})
+                                    {"plugin": plugin_id})
                 continue
 
             try:

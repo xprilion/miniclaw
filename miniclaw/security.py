@@ -218,7 +218,7 @@ class PermissionManager:
         self._cache_timestamps: Dict[str, float] = {}
 
     def check_tool_permission(self, tool_name: str, user_id: str = "default",
-                             context: Optional[Dict[str, Any]] = None) -> bool:
+                              context: Optional[Dict[str, Any]] = None) -> bool:
         """Check if a user has permission to execute a specific tool."""
         cache_key = f"{user_id}:{tool_name}"
         current_time = time.time()
@@ -356,7 +356,7 @@ class RateLimiter:
         self._ip_counts: Dict[str, List[float]] = {}  # ip_address -> timestamps
 
     def check_rate_limit(self, user_id: str = "default", ip_address: str = "",
-                        limit: int = 100, window: int = 60) -> bool:
+                         limit: int = 100, window: int = 60) -> bool:
         """Check if user has exceeded rate limit."""
         current_time = time.time()
         cutoff_time = current_time - window

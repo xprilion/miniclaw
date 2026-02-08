@@ -36,7 +36,7 @@ class ModelProviderClient:
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
+                           "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
@@ -94,7 +94,7 @@ class ModelProviderClient:
                     else:
                         # Non-JSON response
                         return {"ok": False, "error": "Non-JSON response", "content_type": content_type,
-                               "raw_body": body}
+                                "raw_body": body}
                 else:
                     return {}
         except urllib.error.HTTPError as exc:
@@ -288,7 +288,7 @@ class ModelProviderClient:
                 },
             )
             LOGGER.warning("Ollama /api/chat failed; fallback to /api/generate provider=%s model=%s",
-                          provider.get("id"), model)
+                           provider.get("id"), model)
             generate_payload = {
                 "model": model,
                 "prompt": self._messages_to_generate_prompt(messages),
@@ -476,7 +476,7 @@ class ModelProviderClient:
             "completion_tokens": int(usage_raw.get("completion_tokens") or 0),
         }
         usage["total_tokens"] = int(usage_raw.get("total_tokens") or
-                                   (usage["prompt_tokens"] + usage["completion_tokens"]))
+                                    (usage["prompt_tokens"] + usage["completion_tokens"]))
         return {
             "provider_id": str(provider.get("id") or ""),
             "provider_type": "litellm",
@@ -540,7 +540,7 @@ class ModelProviderClient:
             "completion_tokens": int(usage_raw.get("completion_tokens") or 0),
         }
         usage["total_tokens"] = int(usage_raw.get("total_tokens") or
-                                   (usage["prompt_tokens"] + usage["completion_tokens"]))
+                                    (usage["prompt_tokens"] + usage["completion_tokens"]))
         return {
             "provider_id": str(provider.get("id") or ""),
             "provider_type": "openrouter",

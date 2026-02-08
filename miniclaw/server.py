@@ -69,7 +69,7 @@ def make_handler(state: AppState):
 
             try:
                 target.relative_to(WEB_DIR.resolve() if target.is_relative_to(WEB_DIR.resolve())
-                                  else LEGACY_WEB_DIR.resolve())
+                                   else LEGACY_WEB_DIR.resolve())
             except ValueError:
                 self._send_text("Forbidden", status=403)
                 return
@@ -84,7 +84,7 @@ def make_handler(state: AppState):
                 content_type = "application/octet-stream"
             self.send_response(200)
             self.send_header("Content-Type",
-                            f"{content_type}; charset=utf-8" if content_type.startswith("text/") else content_type)
+                             f"{content_type}; charset=utf-8" if content_type.startswith("text/") else content_type)
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
             self.wfile.write(raw)
@@ -135,7 +135,7 @@ def make_handler(state: AppState):
 
             def status_callback(status_message: str) -> None:
                 """Callback for agent status updates."""
-                nonlocal last_status_time, last_status_sent, initial_delay_sent
+                nonlocal last_status_sent, initial_delay_sent
                 current_time = time.time()
 
                 # Send thinking emoji after 5 seconds if no status sent yet
@@ -174,8 +174,7 @@ def make_handler(state: AppState):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length) if content_length > 0 else b''
 
-            # Get the authorization header
-            auth_header = self.headers.get('Authorization', '')
+            # Get the content type
             content_type = self.headers.get('Content-Type', 'application/json')
 
             # Try to parse the request to determine which provider to use
@@ -265,7 +264,7 @@ def make_handler(state: AppState):
             try:
                 # Forward the request
                 with urllib.request.urlopen(req, timeout=provider.get('timeout_seconds', 300),
-                                           context=ssl_context) as response:
+                                            context=ssl_context) as response:
                     # Read and forward the response
                     response_data = response.read()
                     self.send_response(response.status)
@@ -315,7 +314,7 @@ def make_handler(state: AppState):
                     self._serve_web_file(WEB_ROUTES[path])
                     return
                 if path.startswith("/static/"):
-                    relative = path[len("/static/") :]
+                    relative = path[len("/static/"):]
                     if not relative:
                         self._send_text("Missing static file path", status=404)
                         return
@@ -365,7 +364,7 @@ def make_handler(state: AppState):
                         self._send_json({"ok": True, "file": memory_file, "files": state.memory.list_files()})
                         return
                     self._send_json({"ok": True, "files": state.memory.read_all(),
-                                    "config": state.config_store.get().get("memory")})
+                                     "config": state.config_store.get().get("memory")})
                     return
                 if path == "/api/skills":
                     self._send_json({"ok": True, "skills": state.skills.list()})
@@ -487,7 +486,7 @@ def make_handler(state: AppState):
 
                     if not chat_id:
                         self._send_json({"ok": False, "error": "chat_id is required or no bound chat available"},
-                                       status=400)
+                                        status=400)
                         return
 
                     state.telegram.send_test_message(chat_id=chat_id, message=message)

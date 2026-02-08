@@ -272,7 +272,7 @@ class SetupWizard:
         }
 
     def _create_default_config(self, provider_config: Dict[str, Any],
-                              telegram_config: Optional[Dict[str, Any]]) -> None:
+                               telegram_config: Optional[Dict[str, Any]]) -> None:
         """Create the default configuration file."""
         print(f"\n⚙️  Creating configuration at {self.config_path}")
 

@@ -20,7 +20,7 @@ class ToolRunner:
     """Agent tools: shell, filesystem, fetch, browser, MCP."""
 
     def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager,
-                security_managers: Optional[Dict[str, Any]] = None) -> None:
+                 security_managers: Optional[Dict[str, Any]] = None) -> None:
         self._config_store = config_store
         self._event_log = event_log
         self._mcp = mcp
@@ -459,7 +459,7 @@ class ToolRunner:
         }
 
     def run(self, tool_name: str, arguments: Optional[Dict[str, Any]],
-           trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
+            trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
         name = str(tool_name or "").strip()
         args = arguments if isinstance(arguments, dict) else {}
         trace_details = trace if isinstance(trace, dict) else {}

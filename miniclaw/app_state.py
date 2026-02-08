@@ -243,7 +243,7 @@ class AppState:
             },
         )
         LOGGER.info("Runtime reloaded from config update telegram_restarted=%s whatsapp_restarted=%s",
-                   telegram_restarted, whatsapp_restarted)
+                    telegram_restarted, whatsapp_restarted)
         return updated
 
     def update_skill_settings(self, enabled_skills: List[str], min_score: int) -> Dict[str, Any]:

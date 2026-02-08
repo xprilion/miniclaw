@@ -61,7 +61,7 @@ def extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     for candidate in candidates:
         stripped = candidate.strip()
         if stripped.startswith("TOOL_CALL:"):
-            stripped = stripped[len("TOOL_CALL:") :].strip()
+            stripped = stripped[len("TOOL_CALL:"):].strip()
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
                 parsed = json.loads(stripped)
@@ -73,7 +73,7 @@ def extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     brace_start = raw.find("{")
     brace_end = raw.rfind("}")
     if brace_start >= 0 and brace_end > brace_start:
-        fragment = raw[brace_start : brace_end + 1]
+        fragment = raw[brace_start: brace_end + 1]
         try:
             parsed = json.loads(fragment)
             if isinstance(parsed, dict):

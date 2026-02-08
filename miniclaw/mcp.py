@@ -259,7 +259,7 @@ class MCPServerManager:
             session.start()
             session.initialize(timeout_seconds=int(session.server.get("timeout_seconds") or 30))
             tools_result = session.request("tools/list", {},
-                                          timeout_seconds=int(session.server.get("timeout_seconds") or 30))
+                                           timeout_seconds=int(session.server.get("timeout_seconds") or 30))
             tools = tools_result.get("tools")
             if not isinstance(tools, list):
                 tools = []
