@@ -36,7 +36,7 @@ Config and data live in **`~/.miniclaw`**; this repo contains only code.
 **From source (recommended)**
 
 ```bash
-git clone https://github.com/yourusername/miniclaw.git
+git clone https://github.com/xprilion/miniclaw.git
 cd miniclaw
 uv pip install -e .
 miniclaw install  # Interactive setup wizard with KeyDB installation

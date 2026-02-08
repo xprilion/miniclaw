@@ -129,6 +129,11 @@ header {
     gap: 0.5rem;
 }
 
+.logo-emoji {
+    font-size: 2rem;
+    line-height: 1;
+}
+
 .logo h1 {
     font-size: 1.5rem;
     font-weight: 600;

@@ -139,59 +139,46 @@ jobs:
       run: |
         echo "Converting documentation files..."
         
-        # Create a temporary Python script for conversion
-        cat > convert_docs.py << 'EOF'
+        # Create a temporary Python script for conversion (outputs fragment only for fetch-inject)
+        cat > convert_docs.py << 'PYEOF'
         import os
+        import re
+        import json
         import markdown
         import sys
+        
+        def filename_to_title(filename):
+            return re.sub(r'_', ' ', filename).title()
         
         def convert_markdown_to_html(input_file, output_file):
             with open(input_file, 'r', encoding='utf-8') as f:
                 md_content = f.read()
-            
-            # Convert markdown to HTML
             html_content = markdown.markdown(md_content, extensions=['fenced_code', 'tables'])
-            
-            # Wrap in basic HTML structure
-            full_html = f"""<!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Documentation</title>
-        </head>
-        <body>
-            <div class="doc-content">
-                {html_content}
-            </div>
-        </body>
-        </html>"""
-            
             with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(full_html)
+                f.write(html_content)
         
         if __name__ == "__main__":
-            if len(sys.argv) != 3:
-                print("Usage: python convert_docs.py <input.md> <output.html>")
-                sys.exit(1)
-                
-            input_file = sys.argv[1]
-            output_file = sys.argv[2]
-            convert_markdown_to_html(input_file, output_file)
-            print(f"Converted {input_file} to {output_file}")
-        EOF
+            docs_dir = "docs"
+            out_dir = "_site/docs"
+            js_dir = "_site/js"
+            os.makedirs(out_dir, exist_ok=True)
+            os.makedirs(js_dir, exist_ok=True)
+            doc_list = []
+            for name in sorted(os.listdir(docs_dir)):
+                if name.endswith(".md"):
+                    base = name[:-3]
+                    input_path = os.path.join(docs_dir, name)
+                    output_path = os.path.join(out_dir, base + ".html")
+                    convert_markdown_to_html(input_path, output_path)
+                    doc_list.append({"id": base, "title": filename_to_title(base)})
+                    print(f"Converted {name} -> {base}.html")
+            js_content = "window.DOCS_LIST = " + json.dumps(doc_list, indent=2) + ";\n"
+            with open(os.path.join(js_dir, "docs-list.js"), "w", encoding="utf-8") as f:
+                f.write(js_content)
+            print("Wrote _site/js/docs-list.js")
+        PYEOF
         
-        # Process each documentation file
-        if [ -d "docs" ]; then
-          for file in docs/*.md; do
-              if [ -f "$file" ]; then
-                  filename=$(basename "$file" .md)
-                  echo "Processing $filename.md -> $filename.html"
-                  python convert_docs.py "$file" "_site/docs/${filename}.html"
-              fi
-          done
-        fi
-        
+        python convert_docs.py
         echo "Documentation conversion completed"
 
     - name: Upload artifact
