@@ -81,7 +81,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv pip install bandit safety
+        uv pip install --system bandit safety
 
     - name: Run security checks
       run: |
@@ -116,7 +116,7 @@ jobs:
     - name: Install dependencies
       run: |
         npm install -g marked
-        uv pip install markdown
+        uv pip install --system markdown
 
     - name: Prepare site structure
       run: |
