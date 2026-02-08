@@ -316,7 +316,6 @@ def run_cli() -> int:
     install_p.set_defaults(_install_yes=False)
     onboard_p = sub.add_parser("onboard", help="Initialize config & workspace (alias: install)")
     uninstall_p = sub.add_parser("uninstall", help="Remove workspace directory")
-    uninstall_p = sub.add_parser("uninstall", help="Remove workspace directory")
     uninstall_p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
     doctor_p = sub.add_parser("doctor", help="Check Python, workspace, config, Ollama, server")
     status_p = sub.add_parser("status", help="Show status (alias: doctor)")
@@ -445,82 +444,82 @@ def run_cli() -> int:
         return run_install(args)
     if args.command == "uninstall":
         return run_uninstall(args)
-        if args.command == "doctor" or args.command == "status":
-            print(style.header("MiniClaw System Status"))
-            
-            # Check Python version
-            print(style.sub_section("Python Environment"))
-            print(f"  Version: {sys.version.split()[0]}")
-            print(f"  Executable: {sys.executable}")
-            
-            # Check workspace
-            print(style.sub_section("Workspace"))
-            workspace = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
-            if workspace.exists():
-                print(style.success(f"  Workspace exists: {workspace}"))
+    if args.command == "doctor" or args.command == "status":
+        print(style.header("MiniClaw System Status"))
+        
+        # Check Python version
+        print(style.sub_section("Python Environment"))
+        print(f"  Version: {sys.version.split()[0]}")
+        print(f"  Executable: {sys.executable}")
+        
+        # Check workspace
+        print(style.sub_section("Workspace"))
+        workspace = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+        if workspace.exists():
+            print(style.success(f"  Workspace exists: {workspace}"))
+        else:
+            print(style.warning(f"  Workspace not found: {workspace}"))
+        
+        # Check config
+        config_path = workspace / "miniclaw_config.json"
+        if config_path.exists():
+            print(style.success(f"  Config file exists: {config_path}"))
+        else:
+            print(style.warning(f"  Config file not found: {config_path}"))
+        
+        # Check Ollama
+        print(style.sub_section("AI Providers"))
+        try:
+            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                print(style.success(f"  Ollama: {result.stdout.strip()}"))
             else:
-                print(style.warning(f"  Workspace not found: {workspace}"))
-            
-            # Check config
-            config_path = workspace / "miniclaw_config.json"
-            if config_path.exists():
-                print(style.success(f"  Config file exists: {config_path}"))
+                print(style.warning("  Ollama: Not running or not accessible"))
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print(style.warning("  Ollama: Not installed"))
+        
+        # Check server
+        print(style.sub_section("Server Status"))
+        try:
+            health_result = request_json(base_url, "/api/health")
+            if health_result.get("ok"):
+                print(style.success("  Server: Running"))
             else:
-                print(style.warning(f"  Config file not found: {config_path}"))
-            
-            # Check Ollama
-            print(style.sub_section("AI Providers"))
-            try:
-                result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    print(style.success(f"  Ollama: {result.stdout.strip()}"))
-                else:
-                    print(style.warning("  Ollama: Not running or not accessible"))
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                print(style.warning("  Ollama: Not installed"))
-            
-            # Check server
-            print(style.sub_section("Server Status"))
-            try:
-                health_result = request_json(base_url, "/api/health")
-                if health_result.get("ok"):
-                    print(style.success("  Server: Running"))
-                else:
-                    print(style.warning("  Server: Not responding"))
-            except Exception:
-                print(style.warning("  Server: Not running"))
-            
-            print(f"\n{style.info('Run ' + style.code('miniclaw install') + ' to set up or repair your installation.')}")
-            return 0
+                print(style.warning("  Server: Not responding"))
+        except Exception:
+            print(style.warning("  Server: Not running"))
+        
+        print(f"\n{style.info('Run ' + style.code('miniclaw install') + ' to set up or repair your installation.')}")
+        return 0
     if args.command == "status":
         return run_doctor(args)
     if args.command == "update":
         return run_update(args)
-        if args.command == "gateway":
-            if getattr(args, "host", None):
-                os.environ["MINICLAW_HOST"] = str(args.host)
-            if getattr(args, "port", None) is not None:
-                os.environ["MINICLAW_PORT"] = str(args.port)
-            
-            print(style.header("Starting MiniClaw Server"))
-            print(style.info("Initializing services..."))
-            
-            # Show startup progress
-            print(f"{style.list_item('Loading configuration')}")
-            print(f"{style.list_item('Initializing services')}")
-            print(f"{style.list_item('Starting HTTP server')}")
-            
-            from miniclaw import run
-            try:
-                print(style.success("Server started successfully!"))
-                print(style.info("Press Ctrl+C to stop the server"))
-                run()
-            except KeyboardInterrupt:
-                print(f"\n{style.info('Server stopped by user')}")
-            except Exception as e:
-                print(style.error(f"Server error: {e}"))
-                return 1
-            return 0
+    if args.command == "gateway":
+        if getattr(args, "host", None):
+            os.environ["MINICLAW_HOST"] = str(args.host)
+        if getattr(args, "port", None) is not None:
+            os.environ["MINICLAW_PORT"] = str(args.port)
+        
+        print(style.header("Starting MiniClaw Server"))
+        print(style.info("Initializing services..."))
+        
+        # Show startup progress
+        print(f"{style.list_item('Loading configuration')}")
+        print(f"{style.list_item('Initializing services')}")
+        print(f"{style.list_item('Starting HTTP server')}")
+        
+        from miniclaw import run
+        try:
+            print(style.success("Server started successfully!"))
+            print(style.info("Press Ctrl+C to stop the server"))
+            run()
+        except KeyboardInterrupt:
+            print(f"\n{style.info('Server stopped by user')}")
+        except Exception as e:
+            print(style.error(f"Server error: {e}"))
+            return 1
+        return 0
     if args.command == "agent":
         message = (getattr(args, "agent_message", None) or getattr(args, "message_pos", None) or "").strip()
         if getattr(args, "stdin", False):
