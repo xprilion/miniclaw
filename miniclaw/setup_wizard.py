@@ -69,7 +69,7 @@ class SetupWizard:
         if sys.version_info < (3, 9):
             print("❌ Python 3.9 or higher is required")
             return False
-        print(f"✅ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+        print(f"✅ Python {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}")
         
         # Check for pip or uv
         has_uv = shutil.which("uv") is not None
@@ -277,6 +277,9 @@ class SetupWizard:
         """Create the default configuration file."""
         print(f"\n⚙️  Creating configuration at {self.config_path}")
         
+        # Ensure parent directory exists
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        
         config = {
             "server": {
                 "host": "127.0.0.1",
@@ -370,6 +373,7 @@ class SetupWizard:
         
         # Memory files
         memory_dir = self.workspace / "memory"
+        memory_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
         memory_files = {
             "soul.md": (
                 "# Soul\n\n"
@@ -401,6 +405,7 @@ class SetupWizard:
         
         # Skill files
         skills_dir = self.workspace / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
         skill_files = {
             "issue_triage.md": (
                 "# Issue Triage\n\n"

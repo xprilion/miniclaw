@@ -98,7 +98,8 @@ def run_install(args: argparse.Namespace) -> int:
         print(style.info("Next steps:"))
         print(f"  {style.list_item('Start the server: ' + style.code('miniclaw gateway'))}")
         print(f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}")
-        print(f"  {style.list_item('Chat via CLI: ' + style.code('miniclaw agent -m \"Hello!\"'))}")
+        chat_example = 'miniclaw agent -m "Hello!"'
+        print(f"  {style.list_item('Chat via CLI: ' + style.code(chat_example))}")
     else:
         print(style.error("Installation failed. Please check the error messages above."))
     

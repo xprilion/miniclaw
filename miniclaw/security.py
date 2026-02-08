@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import re
 import subprocess
@@ -23,10 +24,9 @@ class SandboxManager:
         self._allowed_paths: Set[str] = set()
         self._blocked_commands: Set[str] = {
             # Dangerous commands that should never be executed
-            "rm -rf /", "rm -rf /*", ":(){ :|:& };:", "mkfs", "dd if=/dev/zero",
-            "chmod 777", "chown root", "wget", "curl", "nc", "netcat", "telnet",
+            "rm", "mkfs", "dd", "chmod", "chown", "wget", "curl", "nc", "netcat", "telnet",
             "ssh", "scp", "rsync", "ftp", "sftp", "mount", "umount", "killall",
-            "shutdown", "reboot", "halt", "poweroff", "forkbomb", "forkbomb.sh"
+            "shutdown", "reboot", "halt", "poweroff"
         }
         # Commands that require special permissions
         self._restricted_commands: Set[str] = {
@@ -76,6 +76,7 @@ class SandboxManager:
             r"&&\s*rm\s+-rf",  # rm -rf after &&
             r"\|\s*(?:sh|bash|python|perl|ruby)",  # Pipe to interpreters
             r";\s*(?:sh|bash|python|perl|ruby)",   # Semicolon followed by interpreters
+            r":\(\)\s*\{\s*:\s*\|\s*:&\s*\};:",   # Fork bomb
         ]
         
         for pattern in dangerous_patterns:
@@ -471,7 +472,8 @@ class ContentFilter:
         text_len = len(text)
         for count in freq.values():
             probability = count / text_len
-            entropy -= probability * (probability.bit_length() - 1)
+            if probability > 0:
+                entropy -= probability * math.log2(probability)
             
         return entropy
 

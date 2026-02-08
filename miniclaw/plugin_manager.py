@@ -114,11 +114,11 @@ class EnhancedPluginManager:
             for line in content.split("\n")[:20]:  # Check first 20 lines
                 line = line.strip()
                 if line.startswith("# name:"):
-                    name = line[7:].strip()
+                    name = line[8:].strip()  # Skip "# name: "
                 elif line.startswith("# description:"):
-                    description = line[13:].strip()
+                    description = line[14:].strip()  # Skip "# description: "
                 elif line.startswith("# version:"):
-                    version = line[10:].strip()
+                    version = line[11:].strip()  # Skip "# version: "
                     
             return {
                 "id": plugin_id,

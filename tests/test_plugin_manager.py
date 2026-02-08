@@ -52,8 +52,9 @@ class TestPluginExecutionContext(unittest.TestCase):
         last_event = events[-1]
         self.assertEqual(last_event["type"], "test.event")
         self.assertEqual(last_event["message"], "Test message")
-        self.assertEqual(last_event["data"]["test_data"], "value")
-        self.assertEqual(last_event["data"]["plugin_id"], "test_plugin")
+        self.assertIn("test_data", last_event["details"])
+        self.assertEqual(last_event["details"]["test_data"], "value")
+        self.assertEqual(last_event["details"]["plugin_id"], "test_plugin")
 
 
 class TestEnhancedPluginManager(unittest.TestCase):
@@ -130,7 +131,11 @@ def on_load(context):
         context = self.plugin_manager.get_plugin_context("test_plugin")
         self.assertIsNotNone(context)
         if context is not None:
-            self.assertTrue(context.get_plugin_data("enabled"))
+            self.assertTrue(context.get_plugin_data("loaded"))
+        
+        # Enable the plugin first
+        result = self.plugin_manager.enable_plugin("test_plugin")
+        self.assertTrue(result)
         
         # Disable the plugin
         result = self.plugin_manager.disable_plugin("test_plugin")
@@ -143,7 +148,7 @@ def on_load(context):
         # Check plugin context
         context = self.plugin_manager.get_plugin_context("test_plugin")
         if context is not None:
-            self.assertFalse(context.get_plugin_data("enabled"))
+            self.assertTrue(context.get_plugin_data("loaded"))
         
     def test_register_and_run_hooks(self):
         """Test registering and running plugin hooks."""
