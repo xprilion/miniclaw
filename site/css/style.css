@@ -12,6 +12,89 @@ body {
     background-color: #f8f9fa;
 }
 
+/* Dark mode styles */
+body.dark-mode {
+    color: #e0e0e0;
+    background-color: #121212;
+}
+
+body.dark-mode header {
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .nav-links a {
+    color: #e0e0e0;
+}
+
+body.dark-mode main {
+    background-color: #121212;
+}
+
+body.dark-mode h1, 
+body.dark-mode h2, 
+body.dark-mode h3 {
+    color: #ffffff;
+}
+
+body.dark-mode .hero {
+    background: linear-gradient(135deg, #0056b3, #003d82);
+}
+
+body.dark-mode .feature-card {
+    background: #1e1e1e;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .documentation {
+    background: #1e1e1e;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .doc-nav a {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+}
+
+body.dark-mode .doc-nav a:hover, 
+body.dark-mode .doc-nav a.active {
+    background-color: #0056b3;
+    color: white;
+}
+
+body.dark-mode .doc-content code {
+    background-color: #2d2d2d;
+}
+
+body.dark-mode .doc-content pre {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+}
+
+body.dark-mode .installation {
+    background: #1e1e1e;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .install-method pre {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+}
+
+body.dark-mode .quick-start {
+    background: #1e1e1e;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .quick-start code {
+    background-color: #2d2d2d;
+}
+
+body.dark-mode footer {
+    background-color: #1e1e1e;
+    border-top: 1px solid #333;
+}
+
 a {
     text-decoration: none;
     color: #007bff;
@@ -37,6 +120,7 @@ header {
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
+    position: relative;
 }
 
 .logo {
@@ -54,11 +138,35 @@ header {
     display: flex;
     list-style: none;
     gap: 1.5rem;
+    align-items: center;
 }
 
 .nav-links a {
     color: #333;
     font-weight: 500;
+}
+
+#theme-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+#theme-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+body.dark-mode #theme-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Main Content */
@@ -350,6 +458,12 @@ footer {
     .nav-links {
         flex-wrap: wrap;
         justify-content: center;
+    }
+    
+    #theme-toggle {
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
     }
     
     .hero h1 {
