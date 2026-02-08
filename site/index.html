@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniClaw - Lightweight AI Agent Infrastructure</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="nav-container">
+                <div class="logo">
+                    <img src="assets/logo.png" alt="MiniClaw Logo" width="40" height="40">
+                    <h1>MiniClaw</h1>
+                </div>
+                <ul class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#documentation">Documentation</a></li>
+                    <li><a href="#installation">Installation</a></li>
+                    <li><a href="#quick-start">Quick Start</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <h1>MiniClaw: Lightweight AI Agent Infrastructure</h1>
+                <p>Production-ready, secure, and minimal AI agent infrastructure inspired by OpenClaw. Designed for smaller models while maintaining enterprise-grade features.</p>
+                <div class="cta-buttons">
+                    <a href="#quick-start" class="btn primary">Get Started</a>
+                    <a href="#documentation" class="btn secondary">View Docs</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="features">
+            <h2>Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🛡️ Enhanced Security</h3>
+                    <p>Advanced sandboxing, permission controls, rate limiting, and content filtering to ensure safe tool execution.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🚀 Production Ready</h3>
+                    <p>Comprehensive monitoring, robust error handling, and scalable architecture designed for production deployment.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>👩‍💻 Developer Friendly</h3>
+                    <p>Extensible plugin system, comprehensive testing, rich API, and detailed documentation for developers.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🌟 User Experience</h3>
+                    <p>Interactive setup wizard, modern web interface with dark/light mode, and enhanced monitoring dashboard.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="documentation" class="documentation">
+            <h2>Documentation</h2>
+            <p>This documentation is automatically compiled from the Markdown files in the <code>docs/</code> folder. The GitHub Action workflow ensures that the site is always up-to-date with the latest documentation changes.</p>
+            <div class="doc-nav" id="doc-navigation">
+                <!-- Documentation navigation will be generated here -->
+            </div>
+            <div class="doc-content" id="doc-content">
+                <!-- Documentation content will be loaded here -->
+            </div>
+        </section>
+
+        <section id="installation" class="installation">
+            <h2>Installation</h2>
+            <div class="install-methods">
+                <div class="install-method">
+                    <h3>From Source (Recommended)</h3>
+                    <pre><code>git clone https://github.com/yourusername/miniclaw.git
+cd miniclaw
+uv pip install -e .
+miniclaw install  # Interactive setup wizard with KeyDB installation</code></pre>
+                </div>
+                <div class="install-method">
+                    <h3>With uv (if published)</h3>
+                    <pre><code>uv tool install miniclaw
+miniclaw setup</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="quick-start" class="quick-start">
+            <h2>Quick Start</h2>
+            <ol>
+                <li><strong>Initialize</strong> - Run <code>miniclaw install</code> to create <code>~/.miniclaw</code> with config, memory, skills, and plugins</li>
+                <li><strong>Configure</strong> - Edit <code>~/.miniclaw/miniclaw_config.json</code> with your Ollama URL, Telegram token, etc.</li>
+                <li><strong>Start the server</strong> - Run <code>miniclaw gateway</code> to start the web + Telegram server</li>
+                <li><strong>Chat</strong> - Use the web UI at <code>http://127.0.0.1:8787</code> or command line with <code>miniclaw agent -m "What is 2+2?"</code></li>
+                <li><strong>Check status</strong> - Run <code>miniclaw status</code> to verify everything is working</li>
+            </ol>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 MiniClaw Project. Licensed under MIT License.</p>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
