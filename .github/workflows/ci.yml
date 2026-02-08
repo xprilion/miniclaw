@@ -85,7 +85,7 @@ jobs:
 
     - name: Run security checks
       run: |
-        bandit -r miniclaw/ -c pyproject.toml -lll
+        bandit -r miniclaw/ -c pyproject.toml
         safety check
 
   deploy-docs:

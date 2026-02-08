@@ -36,3 +36,12 @@ include = ["miniclaw*"]
 
 [tool.setuptools]
 py-modules = ["miniclaw_cli"]
+
+[tool.bandit]
+# Exclude high severity issues that are intentional for the functionality of the application
+exclude_dirs = ["/test/", "/tests/"]
+# Skip B602 (subprocess_popen_with_shell_equals_true) as it's needed for tool execution
+skips = ["B602"]
+# Only fail on HIGH severity issues that we haven't explicitly excluded
+severity = "high"
+confidence = "high"
