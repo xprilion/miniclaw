@@ -131,7 +131,8 @@ def run_uninstall(args: argparse.Namespace) -> int:
     # Confirm removal
     if not getattr(args, "yes", False):
         print(f"\n{style.warning('This action cannot be undone!')}")
-        confirm = input(f"{style.bold('Are you sure you want to remove the workspace? (type \'YES\' to confirm): ')} ").strip()
+        prompt_text = "Are you sure you want to remove the workspace? (type 'YES' to confirm): "
+        confirm = input(f"{style.bold(prompt_text)} ").strip()
         if confirm != "YES":
             print(style.info("Uninstall cancelled."))
             return 0
@@ -169,7 +170,7 @@ def run_doctor(args: argparse.Namespace) -> int:
     # Python
     ver = sys.version_info
     py_ok = ver >= (3, 9)
-    checks.append(("Python 3.9+", py_ok, f"{ver.major}.{ver.minor}.{ver.micro}" if py_ok else "need 3.9+"))
+    checks.append(("Python 3.9+", py_ok, f"{ver[0]}.{ver[1]}.{ver[2]}" if py_ok else "need 3.9+"))
 
     # Workspace
     ws_ok = workspace.exists()
