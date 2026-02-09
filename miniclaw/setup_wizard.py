@@ -51,7 +51,7 @@ class SetupWizard:
             print("   1. Start the server: miniclaw gateway")
             print("   2. Open http://127.0.0.1:8787 in your browser")
             print("   3. Or chat via CLI: miniclaw agent -m \"Hello!\"")
-            
+
             # Offer to set up service (skip during testing)
             import os
             if not os.environ.get("PYTEST_CURRENT_TEST"):

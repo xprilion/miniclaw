@@ -1,6 +1,5 @@
 """Service initialization module for MiniClaw."""
 import os
-import sys
 import subprocess
 import platform
 from pathlib import Path
@@ -11,7 +10,7 @@ def query_user_for_service_installation():
     print("\n" + "="*50)
     print("MiniClaw Service Setup")
     print("="*50)
-    
+
     while True:
         response = input("Would you like to set up MiniClaw to run as a background service? (y/n): ").strip().lower()
         if response in ['y', 'yes']:
@@ -25,7 +24,7 @@ def query_user_for_service_installation():
 def install_service():
     """Install the appropriate service based on the operating system."""
     os_type = platform.system().lower()
-    
+
     if os_type == "linux":
         return install_linux_service()
     elif os_type == "darwin":  # macOS
@@ -40,18 +39,18 @@ def install_service():
 def install_linux_service():
     """Install systemd service on Linux."""
     print("Setting up systemd service for Linux...")
-    
+
     # Check if systemd is available
     if not os.path.exists("/etc/systemd/system"):
         print("systemd not found. Cannot install service automatically.")
         return False
-    
+
     # Try to get the miniclaw executable path
     try:
         miniclaw_path = subprocess.check_output(["which", "miniclaw"], stderr=subprocess.DEVNULL).decode().strip()
     except subprocess.CalledProcessError:
         miniclaw_path = "miniclaw"  # fallback
-    
+
     # Create service content
     service_content = f"""[Unit]
 Description=MiniClaw AI Agent
@@ -79,13 +78,13 @@ ReadWritePaths={Path.home()}/.miniclaw
 [Install]
 WantedBy=multi-user.target
 """
-    
+
     # Write service file to user directory
     service_file = Path.cwd() / "miniclaw.service"
     try:
         with open(service_file, "w") as f:
             f.write(service_content)
-        
+
         print(f"Service file created: {service_file}")
         print("To complete installation, run the following commands with sudo:")
         print(f"  sudo cp {service_file} /etc/systemd/system/")
@@ -101,13 +100,13 @@ WantedBy=multi-user.target
 def install_macos_service():
     """Install launch daemon on macOS."""
     print("Setting up launch agent for macOS...")
-    
+
     # Try to get the miniclaw executable path
     try:
         miniclaw_path = subprocess.check_output(["which", "miniclaw"], stderr=subprocess.DEVNULL).decode().strip()
     except subprocess.CalledProcessError:
         miniclaw_path = "miniclaw"  # fallback
-    
+
     # Create plist content
     plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -115,28 +114,28 @@ def install_macos_service():
 <dict>
     <key>Label</key>
     <string>com.miniclaw.agent</string>
-    
+
     <key>ProgramArguments</key>
     <array>
         <string>{miniclaw_path}</string>
         <string>gateway</string>
     </array>
-    
+
     <key>RunAtLoad</key>
     <true/>
-    
+
     <key>KeepAlive</key>
     <true/>
-    
+
     <key>WorkingDirectory</key>
     <string>{os.getcwd()}</string>
-    
+
     <key>StandardOutPath</key>
     <string>{Path.home()}/.miniclaw/logs/miniclaw.out.log</string>
-    
+
     <key>StandardErrorPath</key>
     <string>{Path.home()}/.miniclaw/logs/miniclaw.err.log</string>
-    
+
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
@@ -145,16 +144,16 @@ def install_macos_service():
 </dict>
 </plist>
 """
-    
+
     # Write plist file
     plist_dir = Path.home() / "Library" / "LaunchAgents"
     plist_dir.mkdir(parents=True, exist_ok=True)
     plist_path = plist_dir / "com.miniclaw.agent.plist"
-    
+
     try:
         with open(plist_path, "w") as f:
             f.write(plist_content)
-        
+
         print(f"Launch agent plist created: {plist_path}")
         print("To complete installation, run:")
         print(f"  launchctl load {plist_path}")
@@ -168,12 +167,13 @@ def install_macos_service():
 def install_windows_service():
     """Create Windows service installation files."""
     print("Creating Windows service installation files...")
-    
+
     # Create PowerShell script for service installation
     ps1_content = """# MiniClaw Windows Service Installation Script (PowerShell)
 
 # Check if running as administrator
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "This script requires administrator privileges." -ForegroundColor Red
     Write-Host "Please run as Administrator." -ForegroundColor Yellow
@@ -190,21 +190,23 @@ try {
         # Fallback to current directory
         $exePath = Join-Path $PSScriptRoot "miniclaw.exe"
         if (-not (Test-Path $exePath)) {
-            Write-Host "Could not find miniclaw executable. Please ensure it's installed and in PATH." -ForegroundColor Red
+            Write-Host "Could not find miniclaw executable. Please ensure it's installed and in PATH." `
+                -ForegroundColor Red
             exit 1
         }
     }
-    
+
     # Create the service
     $serviceName = "MiniClaw"
-    New-Service -Name $serviceName -BinaryPathName "`"$exePath`" gateway" -DisplayName "MiniClaw AI Agent" -StartupType Automatic
-    
+    New-Service -Name $serviceName -BinaryPathName "`"$exePath`" gateway" `
+        -DisplayName "MiniClaw AI Agent" -StartupType Automatic
+
     Write-Host "Service installed successfully." -ForegroundColor Green
-    
+
     # Start the service
     Write-Host "Starting the service..." -ForegroundColor Yellow
     Start-Service -Name $serviceName
-    
+
     if ((Get-Service -Name $serviceName).Status -eq "Running") {
         Write-Host "Service started successfully." -ForegroundColor Green
     } else {
@@ -218,22 +220,22 @@ Write-Host ""
 Write-Host "Press any key to continue..."
 $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
 """
-    
+
     try:
         ps1_path = Path.cwd() / "install_miniclaw_service.ps1"
         with open(ps1_path, "w") as f:
             f.write(ps1_content)
-        
+
         print(f"Windows service installation script created: {ps1_path}")
         print("To complete installation:")
         print("1. Right-click on the PowerShell script and select 'Run with PowerShell'")
         print("   OR")
         print("1. Open PowerShell as Administrator")
-        print(f"2. Navigate to this directory: cd '{Path.cwd()}'")
-        print(f"3. Run: .\\install_miniclaw_service.ps1")
+        print("2. Navigate to this directory: cd '{}'".format(Path.cwd()))
+        print("3. Run: .\\install_miniclaw_service.ps1")
         return True
     except Exception as e:
-        print(f"Error creating Windows service files: {e}")
+        print("Error creating Windows service files: {}".format(e))
         return False
 
 
