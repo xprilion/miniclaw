@@ -14,8 +14,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import platform
 
-from miniclaw.setup.setup_wizard import run_setup_wizard
-from miniclaw.setup.enhanced_setup_wizard import run_enhanced_setup_wizard
 from miniclaw.cli.cli_utils import CLIExperience, CLIStyle
 
 # Global CLI experience instance
@@ -86,12 +84,12 @@ def get_workspace_dir() -> Path:
 def run_gateway_service(args: argparse.Namespace) -> int:
     """Manage the gateway service (start, stop, restart, status)."""
     command = getattr(args, "gateway_command", None)
-    
+
     if not command:
         return 1
-        
+
     os_type = platform.system().lower()
-    
+
     if os_type == "linux":
         return manage_linux_service(command)
     elif os_type == "darwin":  # macOS
@@ -106,35 +104,35 @@ def run_gateway_service(args: argparse.Namespace) -> int:
 def manage_linux_service(command: str) -> int:
     """Manage systemd service on Linux."""
     service_name = "miniclaw"
-    
+
     try:
         if command == "start":
             # Check if service exists
-            result = subprocess.run(["systemctl", "is-active", service_name], 
+            result = subprocess.run(["systemctl", "is-active", service_name],
                                   capture_output=True, text=True)
             if result.returncode == 0 and result.stdout.strip() == "active":
                 print(style.info("Service is already running"))
                 return 0
-                
+
             subprocess.run(["sudo", "systemctl", "start", service_name], check=True)
             print(style.success("Service started successfully"))
-            
+
         elif command == "stop":
             subprocess.run(["sudo", "systemctl", "stop", service_name], check=True)
             print(style.success("Service stopped successfully"))
-            
+
         elif command == "restart":
             subprocess.run(["sudo", "systemctl", "restart", service_name], check=True)
             print(style.success("Service restarted successfully"))
-            
+
         elif command == "status":
-            result = subprocess.run(["systemctl", "is-active", service_name], 
+            result = subprocess.run(["systemctl", "is-active", service_name],
                                   capture_output=True, text=True)
             if result.returncode == 0 and result.stdout.strip() == "active":
                 print(style.success("Service is running"))
             else:
                 print(style.warning("Service is not running"))
-                
+
         return 0
     except subprocess.CalledProcessError as e:
         print(style.error(f"Failed to {command} service: {e}"))
@@ -148,42 +146,42 @@ def manage_macos_service(command: str) -> int:
     """Manage launchd service on macOS."""
     plist_label = "com.miniclaw.agent"
     plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
-    
+
     try:
         if command == "start":
             if not plist_path.exists():
                 print(style.error("Service not installed. Run 'miniclaw service install' first."))
                 return 1
-                
+
             # Check if service is already loaded
-            result = subprocess.run(["launchctl", "list", plist_label], 
+            result = subprocess.run(["launchctl", "list", plist_label],
                                   capture_output=True, text=True)
             if result.returncode == 0 and plist_label in result.stdout:
                 print(style.info("Service is already loaded"))
                 # Check if it's actually running
                 return 0
-                
+
             subprocess.run(["launchctl", "load", str(plist_path)], check=True)
             print(style.success("Service started successfully"))
-            
+
         elif command == "stop":
             subprocess.run(["launchctl", "unload", str(plist_path)], check=True)
             print(style.success("Service stopped successfully"))
-            
+
         elif command == "restart":
-            subprocess.run(["launchctl", "unload", str(plist_path)], 
+            subprocess.run(["launchctl", "unload", str(plist_path)],
                           capture_output=True, check=False)
             subprocess.run(["launchctl", "load", str(plist_path)], check=True)
             print(style.success("Service restarted successfully"))
-            
+
         elif command == "status":
-            result = subprocess.run(["launchctl", "list", plist_label], 
+            result = subprocess.run(["launchctl", "list", plist_label],
                                   capture_output=True, text=True)
             if result.returncode == 0 and plist_label in result.stdout:
                 print(style.success("Service is loaded"))
             else:
                 print(style.warning("Service is not loaded"))
-                
+
         return 0
     except subprocess.CalledProcessError as e:
         print(style.error(f"Failed to {command} service: {e}"))
@@ -196,34 +194,34 @@ def manage_macos_service(command: str) -> int:
 def manage_windows_service(command: str) -> int:
     """Manage Windows service."""
     service_name = "MiniClaw"
-    
+
     try:
         if command == "start":
             # Check if service exists
-            result = subprocess.run(["sc", "query", service_name], 
+            result = subprocess.run(["sc", "query", service_name],
                                   capture_output=True, text=True)
             if "does not exist" in result.stdout:
                 print(style.error("Service not installed. Run 'miniclaw service install' first."))
                 return 1
-                
+
             subprocess.run(["sc", "start", service_name], check=True)
             print(style.success("Service started successfully"))
-            
+
         elif command == "stop":
             subprocess.run(["sc", "stop", service_name], check=True)
             print(style.success("Service stopped successfully"))
-            
+
         elif command == "restart":
-            subprocess.run(["sc", "stop", service_name], 
+            subprocess.run(["sc", "stop", service_name],
                           capture_output=True, check=False)
             # Wait a bit for service to stop
             import time
             time.sleep(2)
             subprocess.run(["sc", "start", service_name], check=True)
             print(style.success("Service restarted successfully"))
-            
+
         elif command == "status":
-            result = subprocess.run(["sc", "query", service_name], 
+            result = subprocess.run(["sc", "query", service_name],
                                   capture_output=True, text=True)
             if "RUNNING" in result.stdout:
                 print(style.success("Service is running"))
@@ -231,7 +229,7 @@ def manage_windows_service(command: str) -> int:
                 print(style.warning("Service is stopped"))
             else:
                 print(style.warning("Service status unknown"))
-                
+
         return 0
     except subprocess.CalledProcessError as e:
         print(style.error(f"Failed to {command} service: {e}"))
@@ -265,13 +263,13 @@ def run_install(args: argparse.Namespace) -> int:
     """Run the enhanced interactive setup wizard."""
     print(style.header("MiniClaw Installation"))
     print(style.info("Starting interactive setup wizard with KeyDB support..."))
-    
+
     # Show a simple progress indicator
     print(style.info("Launching setup wizard..."))
-    
+
     from miniclaw.setup.enhanced_setup_wizard import run_enhanced_setup_wizard
     result = run_enhanced_setup_wizard()
-    
+
     if result == 0:
         print(style.success("Installation completed successfully!"))
         print(style.info("Next steps:"))
@@ -279,24 +277,24 @@ def run_install(args: argparse.Namespace) -> int:
         print(f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}")
         chat_example = 'miniclaw agent -m "Hello!"'
         print(f"  {style.list_item('Chat via CLI: ' + style.code(chat_example))}")
-        
+
         # Offer to set up service
         print(f"\n{style.info('Optional: Set up MiniClaw as a background service')}")
         print(f"  {style.list_item('Run: ' + style.code('miniclaw service install'))}")
-        print(f"  This will set up MiniClaw to run automatically on system startup.")
+        print("  This will set up MiniClaw to run automatically on system startup.")
     else:
         print(style.error("Installation failed. Please check the error messages above."))
-    
+
     return result
 
 
 def run_service_command(args: argparse.Namespace) -> int:
     """Handle service management commands."""
     command = getattr(args, "service_command", None)
-    
+
     if not command:
         return 1
-        
+
     if command == "install":
         return run_install_service(args)
     elif command == "uninstall":
@@ -306,91 +304,65 @@ def run_service_command(args: argparse.Namespace) -> int:
         mock_args = argparse.Namespace()
         mock_args.gateway_command = command
         return run_gateway_service(mock_args)
-    
+
     return 1
 
 
 def run_uninstall_service(args: argparse.Namespace) -> int:
     """Uninstall the service for the current platform."""
     os_type = platform.system().lower()
-    
+
     try:
         if os_type == "linux":
             # Stop and disable service
-            subprocess.run(["sudo", "systemctl", "stop", "miniclaw"], 
+            subprocess.run(["sudo", "systemctl", "stop", "miniclaw"],
                           capture_output=True, check=False)
-            subprocess.run(["sudo", "systemctl", "disable", "miniclaw"], 
+            subprocess.run(["sudo", "systemctl", "disable", "miniclaw"],
                           capture_output=True, check=False)
-            subprocess.run(["sudo", "rm", "-f", "/etc/systemd/system/miniclaw.service"], 
+            subprocess.run(["sudo", "rm", "-f", "/etc/systemd/system/miniclaw.service"],
                           check=False)
             subprocess.run(["sudo", "systemctl", "daemon-reload"], check=False)
             print(style.success("Linux service uninstalled"))
-            
+
         elif os_type == "darwin":  # macOS
             plist_path = Path.home() / "Library" / "LaunchAgents" / "com.miniclaw.agent.plist"
             if plist_path.exists():
-                subprocess.run(["launchctl", "unload", str(plist_path)], 
+                subprocess.run(["launchctl", "unload", str(plist_path)],
                               capture_output=True, check=False)
                 plist_path.unlink()
                 print(style.success("macOS service uninstalled"))
             else:
                 print(style.info("macOS service not found"))
-                
+
         elif os_type == "windows":
             # Stop and delete service
-            subprocess.run(["sc", "stop", "MiniClaw"], 
+            subprocess.run(["sc", "stop", "MiniClaw"],
                           capture_output=True, check=False)
-            subprocess.run(["sc", "delete", "MiniClaw"], 
+            subprocess.run(["sc", "delete", "MiniClaw"],
                           capture_output=True, check=False)
             print(style.success("Windows service uninstalled"))
-            
+
         else:
             print(style.error(f"Unsupported operating system: {os_type}"))
             return 1
-            
+
         return 0
     except Exception as e:
         print(style.error(f"Error uninstalling service: {e}"))
         return 1
-    """Run the enhanced interactive setup wizard."""
-    print(style.header("MiniClaw Installation"))
-    print(style.info("Starting interactive setup wizard with KeyDB support..."))
-    
-    # Show a simple progress indicator
-    print(style.info("Launching setup wizard..."))
-    
-    from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
-    result = run_enhanced_setup_wizard()
-    
-    if result == 0:
-        print(style.success("Installation completed successfully!"))
-        print(style.info("Next steps:"))
-        print(f"  {style.list_item('Start the server: ' + style.code('miniclaw gateway'))}")
-        print(f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}")
-        chat_example = 'miniclaw agent -m "Hello!"'
-        print(f"  {style.list_item('Chat via CLI: ' + style.code(chat_example))}")
-        
-        # Offer to set up service
-        print(f"\n{style.info('Optional: Set up MiniClaw as a background service')}")
-        print(f"  {style.list_item('Run: ' + style.code('python install_service.py'))}")
-        print(f"  This will set up MiniClaw to run automatically on system startup.")
-    else:
-        print(style.error("Installation failed. Please check the error messages above."))
-    
-    return result
 
 
 def run_uninstall(args: argparse.Namespace) -> int:
     """Remove workspace directory (with confirmation) with enhanced styling."""
     workspace = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
-    
+
     if not workspace.exists():
         print(style.warning(f"Workspace directory does not exist: {workspace}"))
         return 0
-    
+
     print(style.header("MiniClaw Uninstall"))
     print(f"Workspace directory: {workspace}")
-    
+
     # Show what will be removed
     print(style.sub_section("Contents to be removed:"))
     try:
@@ -401,7 +373,7 @@ def run_uninstall(args: argparse.Namespace) -> int:
                 print(f"  {style.list_item(item.name)}")
     except Exception:
         print(style.warning("Could not list directory contents"))
-    
+
     # Confirm removal
     if not getattr(args, "yes", False):
         print(f"\n{style.warning('This action cannot be undone!')}")
@@ -410,7 +382,7 @@ def run_uninstall(args: argparse.Namespace) -> int:
         if confirm != "YES":
             print(style.info("Uninstall cancelled."))
             return 0
-    
+
     # Remove workspace
     try:
         import shutil
@@ -420,24 +392,14 @@ def run_uninstall(args: argparse.Namespace) -> int:
     except Exception as e:
         print(style.error(f"Failed to remove workspace: {e}"))
         return 1
-    
-    return 0
-    if not getattr(args, "yes", False):
-        try:
-            reply = input(f"Remove {workspace} and all its contents? [y/N]: ").strip().lower()
-        except EOFError:
-            reply = "n"
-        if reply != "y" and reply != "yes":
-            print("Aborted.")
-            return 0
-    shutil.rmtree(workspace, ignore_errors=True)
-    print("Removed", workspace)
+
     return 0
 
 
 def run_doctor(args: argparse.Namespace) -> int:
     """Check Python, workspace, config, Ollama, and optional server with enhanced styling."""
-    workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+    workspace_path = getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")
+    workspace = Path(workspace_path).expanduser().resolve()
     base_url = getattr(args, "base_url", None) or os.getenv("MINICLAW_URL", "http://127.0.0.1:8787")
     checks: List[Tuple[str, bool, str]] = []
 
@@ -463,8 +425,12 @@ def run_doctor(args: argparse.Namespace) -> int:
         try:
             data = json.loads(config_path.read_text(encoding="utf-8"))
             prov = (data.get("providers") or {}).get("items") or []
-            default_id = str((data.get("providers") or {}).get("default_provider_id") or "")
-            default_provider = next((p for p in prov if isinstance(p, dict) and str(p.get("id") or "") == default_id), prov[0] if prov else None)
+            providers_data = data.get("providers") or {}
+            default_id = str(providers_data.get("default_provider_id") or "")
+            default_provider = next(
+                (p for p in prov if isinstance(p, dict) and str(p.get("id") or "") == default_id),
+                prov[0] if prov else None
+            )
             if isinstance(default_provider, dict):
                 base = str(default_provider.get("base_url") or "http://localhost:11434")
                 checks.append(("  Provider URL", True, base))
@@ -507,13 +473,14 @@ def run_doctor(args: argparse.Namespace) -> int:
 def run_update(args: argparse.Namespace) -> int:
     """Update dependencies and optionally config defaults with enhanced styling."""
     from miniclaw.cli.cli_utils import CLIProgressBar
-    
-    workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+
+    workspace_path = getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")
+    workspace = Path(workspace_path).expanduser().resolve()
     print(style.header("MiniClaw Update"))
     project_dir = Path(__file__).resolve().parent
     req_file = project_dir / "requirements.txt"
     updated = False
-    
+
     if req_file.exists():
         uv_cmd = shutil.which("uv")
         if uv_cmd:
@@ -522,7 +489,7 @@ def run_update(args: argparse.Namespace) -> int:
                 # Show progress for dependency update
                 progress = CLIProgressBar(100, prefix='Progress:', suffix='Complete', length=30)
                 progress.update(20)
-                
+
                 subprocess.run([uv_cmd, "pip", "install", "-r", str(req_file)], check=True)
                 progress.update(80)
                 updated = True
@@ -538,7 +505,7 @@ def run_update(args: argparse.Namespace) -> int:
                     # Show progress for dependency update
                     progress = CLIProgressBar(100, prefix='Progress:', suffix='Complete', length=30)
                     progress.update(20)
-                    
+
                     subprocess.run([pip_cmd, "install", "-r", str(req_file)], check=True)
                     progress.update(80)
                     updated = True
@@ -548,14 +515,14 @@ def run_update(args: argparse.Namespace) -> int:
                     print(style.error("Failed to update dependencies with pip"))
             else:
                 print(style.warning("Neither uv nor pip found. Skipping dependency update."))
-    
+
     # Update config defaults
     config_path = workspace / "miniclaw_config.json"
     if config_path.exists():
         try:
             from miniclaw.core.config import ConfigStore
             from miniclaw.core.events import EventLog
-            
+
             print(style.info("Updating config defaults..."))
             event_log = EventLog()
             config_store = ConfigStore(config_path, event_log)
@@ -563,12 +530,12 @@ def run_update(args: argparse.Namespace) -> int:
             print(style.success("Config defaults updated"))
         except Exception as e:
             print(style.warning(f"Could not update config defaults: {e}"))
-    
+
     if updated:
         print(style.success("Update completed successfully!"))
     else:
         print(style.info("No updates were performed."))
-    
+
     return 0
 
 
@@ -588,10 +555,13 @@ def run_cli() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("health", help="Check /api/health")
-    install_p = sub.add_parser("install", help="Create workspace and guide through prerequisites with interactive setup")
+    install_p = sub.add_parser(
+        "install",
+        help="Create workspace and guide through prerequisites with interactive setup"
+    )
     install_p.set_defaults(_install_yes=False)
-    onboard_p = sub.add_parser("onboard", help="Initialize config & workspace (alias: install)")
-    
+    sub.add_parser("onboard", help="Initialize config & workspace (alias: install)")
+
     # Service management commands
     service_p = sub.add_parser("service", help="Manage MiniClaw as a system service")
     service_sub = service_p.add_subparsers(dest="service_command", required=True)
@@ -603,13 +573,22 @@ def run_cli() -> int:
     service_sub.add_parser("status", help="Check the status of the MiniClaw service")
     uninstall_p = sub.add_parser("uninstall", help="Remove workspace directory")
     uninstall_p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
-    doctor_p = sub.add_parser("doctor", help="Check Python, workspace, config, Ollama, server")
-    status_p = sub.add_parser("status", help="Show status (alias: doctor)")
-    update_p = sub.add_parser("update", help="Update dependencies and existing installation")
-    gateway_p = sub.add_parser("gateway", help="Start the server (web + Telegram) or manage as service")
-    gateway_p.add_argument("--host", default=os.getenv("MINICLAW_HOST", "127.0.0.1"), help="Bind host")
-    gateway_p.add_argument("--port", type=int, default=int(os.getenv("MINICLAW_PORT", "8787")), help="Bind port")
-    gateway_sub = gateway_p.add_subparsers(dest="gateway_command", help="Gateway service management commands", required=False)
+    sub.add_parser("doctor", help="Check Python, workspace, config, Ollama, server")
+    sub.add_parser("status", help="Show status (alias: doctor)")
+    sub.add_parser("update", help="Update dependencies and existing installation")
+    gateway_p = sub.add_parser(
+        "gateway",
+        help="Start the server (web + Telegram) or manage as service"
+    )
+    host_default = os.getenv("MINICLAW_HOST", "127.0.0.1")
+    gateway_p.add_argument("--host", default=host_default, help="Bind host")
+    port_str = os.getenv("MINICLAW_PORT", "8787")
+    gateway_p.add_argument("--port", type=int, default=int(port_str), help="Bind port")
+    gateway_sub = gateway_p.add_subparsers(
+        dest="gateway_command",
+        help="Gateway service management commands",
+        required=False
+    )
     gateway_sub.add_parser("start", help="Start gateway as a service")
     gateway_sub.add_parser("stop", help="Stop gateway service")
     gateway_sub.add_parser("restart", help="Restart gateway service")
@@ -739,12 +718,12 @@ def run_cli() -> int:
         return run_uninstall(args)
     if args.command == "doctor" or args.command == "status":
         print(style.header("MiniClaw System Status"))
-        
+
         # Check Python version
         print(style.sub_section("Python Environment"))
         print(f"  Version: {sys.version.split()[0]}")
         print(f"  Executable: {sys.executable}")
-        
+
         # Check workspace
         print(style.sub_section("Workspace"))
         workspace = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
@@ -752,14 +731,14 @@ def run_cli() -> int:
             print(style.success(f"  Workspace exists: {workspace}"))
         else:
             print(style.warning(f"  Workspace not found: {workspace}"))
-        
+
         # Check config
         config_path = workspace / "miniclaw_config.json"
         if config_path.exists():
             print(style.success(f"  Config file exists: {config_path}"))
         else:
             print(style.warning(f"  Config file not found: {config_path}"))
-        
+
         # Check Ollama
         print(style.sub_section("AI Providers"))
         try:
@@ -770,7 +749,7 @@ def run_cli() -> int:
                 print(style.warning("  Ollama: Not running or not accessible"))
         except (subprocess.TimeoutExpired, FileNotFoundError):
             print(style.warning("  Ollama: Not installed"))
-        
+
         # Check server
         print(style.sub_section("Server Status"))
         try:
@@ -781,7 +760,7 @@ def run_cli() -> int:
                 print(style.warning("  Server: Not responding"))
         except Exception:
             print(style.warning("  Server: Not running"))
-        
+
         print(f"\n{style.info('Run ' + style.code('miniclaw install') + ' to set up or repair your installation.')}")
         return 0
     if args.command == "status":
@@ -796,15 +775,15 @@ def run_cli() -> int:
             os.environ["MINICLAW_HOST"] = str(args.host)
         if getattr(args, "port", None) is not None:
             os.environ["MINICLAW_PORT"] = str(args.port)
-        
+
         print(style.header("Starting MiniClaw Server"))
         print(style.info("Initializing services..."))
-        
+
         # Show startup progress
         print(f"{style.list_item('Loading configuration')}")
         print(f"{style.list_item('Initializing services')}")
         print(f"{style.list_item('Starting HTTP server')}")
-        
+
         from miniclaw import run
         try:
             print(style.success("Server started successfully!"))
@@ -823,7 +802,7 @@ def run_cli() -> int:
         if not message:
             print(style.error("Usage: miniclaw agent -m \"Your message\"  or  miniclaw agent \"Your message\""))
             return 1
-        
+
         print(style.info("Sending message to MiniClaw..."))
         result = request_json(
             base_url,
@@ -835,7 +814,7 @@ def run_cli() -> int:
                 "provider_id": getattr(args, "provider", "") or "",
             },
         )
-        
+
         if result.get("ok"):
             if getattr(args, "json", False):
                 print_json(result)
@@ -861,16 +840,19 @@ def run_cli() -> int:
             return 0
 
         if args.command == "models":
-            provider_q = f"?provider_id={urllib.parse.quote(args.provider)}" if args.provider else ""
+            provider_query = args.provider if args.provider else ""
+            provider_q = f"?provider_id={urllib.parse.quote(provider_query)}" if provider_query else ""
             result = request_json(base_url, f"/api/models{provider_q}")
             if result.get("ok"):
                 provider_info = result.get("provider", {})
                 models = result.get("models", [])
-                
-                print(style.section(f"Models ({provider_info.get('name', 'Unknown')} - {provider_info.get('id', 'N/A')})"))
+
+                provider_name = provider_info.get('name', 'Unknown')
+                provider_id = provider_info.get('id', 'N/A')
+                print(style.section(f"Models ({provider_name} - {provider_id})"))
                 print(f"Base URL: {provider_info.get('base_url', 'N/A')}")
                 print(f"Model: {provider_info.get('model', 'N/A')}")
-                
+
                 if models:
                     print(f"\n{style.sub_section('Available Models:')}")
                     for model in models:
@@ -886,17 +868,17 @@ def run_cli() -> int:
             if result.get("ok"):
                 usage_data = result.get("usage", {})
                 print(style.section("Token Usage Summary"))
-                
+
                 # Show total usage
                 total_input = usage_data.get("total_input_tokens", 0)
                 total_output = usage_data.get("total_output_tokens", 0)
                 total_cost = usage_data.get("estimated_cost_usd", 0)
-                
+
                 print(f"Total Input Tokens:  {style.highlight(str(total_input))}")
                 print(f"Total Output Tokens: {style.highlight(str(total_output))}")
                 if total_cost > 0:
                     print(f"Estimated Cost:      {style.highlight(f'${total_cost:.4f}')}")
-                
+
                 # Show recent usage
                 recent = usage_data.get("recent_usage", [])
                 if recent:
@@ -917,21 +899,21 @@ def run_cli() -> int:
             if result.get("ok"):
                 runtime_data = result.get("runtime", {})
                 print(style.section("Runtime Information"))
-                
+
                 # Basic info
                 print(f"Config Path:    {runtime_data.get('config_path', 'N/A')}")
                 print(f"Workspace:      {runtime_data.get('skills_dir', 'N/A').replace('/skills', '')}")
-                
+
                 # Services status
                 telegram_status = runtime_data.get("telegram", {})
                 jobs_status = runtime_data.get("jobs", {})
-                
+
                 print(f"\n{style.sub_section('Services Status:')}")
                 telegram_enabled = "Enabled" if telegram_status.get("enabled", False) else "Disabled"
                 jobs_enabled = "Enabled" if jobs_status.get("enabled", False) else "Disabled"
                 print(f"  Telegram: {telegram_enabled}")
                 print(f"  Jobs:     {jobs_enabled}")
-                
+
                 # Providers
                 providers = runtime_data.get("providers", {}).get("items", [])
                 if providers:
@@ -940,14 +922,14 @@ def run_cli() -> int:
                         status = "Enabled" if provider.get("enabled", False) else "Disabled"
                         print(f"  {provider.get('name', 'Unknown')} ({provider.get('type', 'unknown')}): {status}")
                         print(f"    Model: {provider.get('model', 'N/A')}")
-                
+
                 # Loaded components
                 skills_count = len(runtime_data.get("loaded_skills", []))
                 plugins_count = len(runtime_data.get("loaded_plugins", []))
                 print(f"\n{style.sub_section('Loaded Components:')}")
                 print(f"  Skills:  {skills_count}")
                 print(f"  Plugins: {plugins_count}")
-                
+
             else:
                 print(style.error(f"Failed to fetch runtime info: {result.get('error', 'Unknown error')}"))
             return 0
@@ -957,7 +939,7 @@ def run_cli() -> int:
             if result.get("ok"):
                 skills = result.get("skills", [])
                 print(style.section(f"Skills ({len(skills)} loaded)"))
-                
+
                 if skills:
                     for skill in skills:
                         status = "Enabled" if skill.get("enabled", True) else "Disabled"
@@ -1011,7 +993,7 @@ def run_cli() -> int:
             if not message:
                 print(style.error("Message is empty. Provide a message or use --stdin."))
                 return 1
-            
+
             print(style.info("Sending message to MiniClaw..."))
             result = request_json(
                 base_url,
@@ -1023,7 +1005,7 @@ def run_cli() -> int:
                     "provider_id": args.provider or "",
                 },
             )
-            
+
             if result.get("ok"):
                 if args.json:
                     print_json(result)
@@ -1042,12 +1024,12 @@ def run_cli() -> int:
             if result.get("ok"):
                 history_items = result.get("history", [])
                 print(style.section(f"Chat History ({len(history_items)} items)"))
-                
+
                 for item in history_items:
                     timestamp = item.get("timestamp", "")[:19]  # Truncate to readable format
                     role = item.get("role", "unknown")
                     content = item.get("content", "")[:100] + "..." if len(item.get("content", "")) > 100 else item.get("content", "")
-                    
+
                     role_style = style.success if role == "assistant" else style.info
                     print(f"\n{role_style(role.upper())} [{timestamp}]")
                     print(f"  {content}")
@@ -1062,12 +1044,12 @@ def run_cli() -> int:
                 events = result.get("events", [])
                 print(style.section(f"Events ({len(events)} items)"))
                 print(f"Latest ID: {result.get('latest_id', 'N/A')}")
-                
+
                 for event in events:
                     timestamp = event.get("timestamp", "")[:19]  # Truncate to readable format
                     event_type = event.get("type", "unknown")
                     message = event.get("message", "")
-                    
+
                     print(f"\n{style.highlight(event_type)} [{timestamp}]")
                     if message:
                         print(f"  {message}")
@@ -1370,12 +1352,12 @@ def run_cli() -> int:
                 if result.get("ok"):
                     jobs_data = result.get("jobs", {})
                     print(style.section("Jobs Status"))
-                    
+
                     status = "Running" if jobs_data.get("running", False) else "Stopped"
                     enabled = "Enabled" if jobs_data.get("enabled", False) else "Disabled"
                     print(f"Service Status: {status}")
                     print(f"Configuration:  {enabled}")
-                    
+
                     jobs_list = jobs_data.get("jobs", [])
                     if jobs_list:
                         print(f"\n{style.sub_section(f'Scheduled Jobs ({len(jobs_list)}):')}")
