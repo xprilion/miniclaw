@@ -1,2 +1,0 @@
-miniclaw
-miniclaw_cli

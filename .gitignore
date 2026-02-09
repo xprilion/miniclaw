@@ -7,6 +7,11 @@ __pycache__/
 # Python-specific ignores
 *.log
 _pycache_/
+*.egg-info/
+build/
+dist/
+*.so
+*.egg
 
 
 # Frontend-specific ignores

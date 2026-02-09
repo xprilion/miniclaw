@@ -1,2 +1,0 @@
-litellm>=1.0.0
-celery>=5.0.0
