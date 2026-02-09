@@ -6,7 +6,7 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .events import EventLog
+from ..core.events import EventLog
 
 
 def _safe_job_id(job_id: str) -> str:

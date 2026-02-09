@@ -8,13 +8,13 @@ class TestJobsRename(unittest.TestCase):
 
     def test_jobs_directory_exists(self):
         """Test that the jobs directory constant points to the correct location."""
-        from miniclaw.constants import JOBS_DIR, WORKSPACE_DIR
+        from miniclaw.core.constants import JOBS_DIR, WORKSPACE_DIR
         self.assertEqual(JOBS_DIR, WORKSPACE_DIR / "jobs")
         self.assertTrue("jobs" in str(JOBS_DIR))
 
     def test_jobs_py_file_exists(self):
         """Test that jobs.py file exists (renamed from scheduler.py)."""
-        jobs_py_path = Path(__file__).parent.parent / "miniclaw" / "jobs.py"
+        jobs_py_path = Path(__file__).parent.parent / "miniclaw" / "data" / "jobs.py"
         self.assertTrue(jobs_py_path.exists(), f"Expected {jobs_py_path} to exist")
 
     def test_jobs_page_exists(self):

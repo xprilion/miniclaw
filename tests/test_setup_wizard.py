@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from miniclaw.setup_wizard import SetupWizard
+from miniclaw.setup.setup_wizard import SetupWizard
 
 
 class TestSetupWizard(unittest.TestCase):
@@ -21,12 +21,12 @@ class TestSetupWizard(unittest.TestCase):
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
         
-    @patch('miniclaw.setup_wizard.SetupWizard._check_prerequisites')
-    @patch('miniclaw.setup_wizard.SetupWizard._create_workspace')
-    @patch('miniclaw.setup_wizard.SetupWizard._configure_model_provider')
-    @patch('miniclaw.setup_wizard.SetupWizard._configure_telegram')
-    @patch('miniclaw.setup_wizard.SetupWizard._create_default_config')
-    @patch('miniclaw.setup_wizard.SetupWizard._create_default_files')
+    @patch('miniclaw.setup.setup_wizard.SetupWizard._check_prerequisites')
+    @patch('miniclaw.setup.setup_wizard.SetupWizard._create_workspace')
+    @patch('miniclaw.setup.setup_wizard.SetupWizard._configure_model_provider')
+    @patch('miniclaw.setup.setup_wizard.SetupWizard._configure_telegram')
+    @patch('miniclaw.setup.setup_wizard.SetupWizard._create_default_config')
+    @patch('miniclaw.setup.setup_wizard.SetupWizard._create_default_files')
     def test_run_success(self, mock_create_files, mock_create_config, mock_configure_telegram, 
                         mock_configure_provider, mock_create_workspace, mock_check_prerequisites):
         """Test successful setup wizard run."""
@@ -48,8 +48,8 @@ class TestSetupWizard(unittest.TestCase):
         mock_configure_telegram.return_value = None
         
         # Create setup wizard with test workspace
-        with patch('miniclaw.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
-            with patch('miniclaw.setup_wizard.CONFIG_PATH', self.workspace_dir / "miniclaw_config.json"):
+        with patch('miniclaw.setup.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
+            with patch('miniclaw.setup.setup_wizard.CONFIG_PATH', self.workspace_dir / "miniclaw_config.json"):
                 wizard = SetupWizard()
                 result = wizard.run()
                 
@@ -66,12 +66,12 @@ class TestSetupWizard(unittest.TestCase):
         
     def test_check_prerequisites_python_version(self):
         """Test prerequisite check for Python version."""
-        with patch('miniclaw.setup_wizard.sys.version_info', (3, 9, 0)):
+        with patch('miniclaw.setup.setup_wizard.sys.version_info', (3, 9, 0)):
             wizard = SetupWizard()
             result = wizard._check_prerequisites()
             self.assertTrue(result)
             
-        with patch('miniclaw.setup_wizard.sys.version_info', (3, 8, 0)):
+        with patch('miniclaw.setup.setup_wizard.sys.version_info', (3, 8, 0)):
             wizard = SetupWizard()
             result = wizard._check_prerequisites()
             self.assertFalse(result)
@@ -79,26 +79,26 @@ class TestSetupWizard(unittest.TestCase):
     def test_check_prerequisites_package_manager(self):
         """Test prerequisite check for package managers."""
         # Test with uv available
-        with patch('miniclaw.setup_wizard.shutil.which', side_effect=lambda x: x == 'uv'):
+        with patch('miniclaw.setup.setup_wizard.shutil.which', side_effect=lambda x: x == 'uv'):
             wizard = SetupWizard()
             result = wizard._check_prerequisites()
             self.assertTrue(result)
             
         # Test with pip available
-        with patch('miniclaw.setup_wizard.shutil.which', side_effect=lambda x: x == 'pip'):
+        with patch('miniclaw.setup.setup_wizard.shutil.which', side_effect=lambda x: x == 'pip'):
             wizard = SetupWizard()
             result = wizard._check_prerequisites()
             self.assertTrue(result)
             
         # Test with neither available
-        with patch('miniclaw.setup_wizard.shutil.which', return_value=None):
+        with patch('miniclaw.setup.setup_wizard.shutil.which', return_value=None):
             wizard = SetupWizard()
             result = wizard._check_prerequisites()
             self.assertFalse(result)
             
     def test_create_workspace(self):
         """Test workspace creation."""
-        with patch('miniclaw.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
+        with patch('miniclaw.setup.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
             wizard = SetupWizard()
             wizard._create_workspace()
             
@@ -114,7 +114,7 @@ class TestSetupWizard(unittest.TestCase):
         wizard = SetupWizard()
         
         # Test with mocked subprocess
-        with patch('miniclaw.setup_wizard.subprocess.run') as mock_run:
+        with patch('miniclaw.setup.setup_wizard.subprocess.run') as mock_run:
             mock_run.return_value = Mock(returncode=0)
             
             result = wizard._configure_ollama()
@@ -133,7 +133,7 @@ class TestSetupWizard(unittest.TestCase):
         wizard = SetupWizard()
         
         # Test with mocked input
-        with patch('miniclaw.setup_wizard.input', side_effect=['test-api-key', 'gpt-4']):
+        with patch('miniclaw.setup.setup_wizard.input', side_effect=['test-api-key', 'gpt-4']):
             result = wizard._configure_openai()
             
         # Verify result structure
@@ -150,7 +150,7 @@ class TestSetupWizard(unittest.TestCase):
         wizard = SetupWizard()
         
         # Test with mocked input
-        with patch('miniclaw.setup_wizard.input', side_effect=['test-api-key', 'openai/gpt-4']):
+        with patch('miniclaw.setup.setup_wizard.input', side_effect=['test-api-key', 'openai/gpt-4']):
             result = wizard._configure_openrouter()
             
         # Verify result structure
@@ -166,8 +166,8 @@ class TestSetupWizard(unittest.TestCase):
         """Test default configuration creation."""
         config_path = self.workspace_dir / "miniclaw_config.json"
         
-        with patch('miniclaw.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
-            with patch('miniclaw.setup_wizard.CONFIG_PATH', config_path):
+        with patch('miniclaw.setup.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
+            with patch('miniclaw.setup.setup_wizard.CONFIG_PATH', config_path):
                 wizard = SetupWizard()
                 
                 provider_config = {
@@ -205,7 +205,7 @@ class TestSetupWizard(unittest.TestCase):
         memory_dir = self.workspace_dir / "memory"
         skills_dir = self.workspace_dir / "skills"
         
-        with patch('miniclaw.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
+        with patch('miniclaw.setup.setup_wizard.WORKSPACE_DIR', self.workspace_dir):
             wizard = SetupWizard()
             wizard._create_default_files()
             

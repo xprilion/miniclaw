@@ -5,13 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from miniclaw.plugin_manager import (
+from miniclaw.plugins.plugin_manager import (
     EnhancedPluginManager,
     PluginExecutionContext,
     create_plugin_manager
 )
-from miniclaw.config import ConfigStore
-from miniclaw.events import EventLog
+from miniclaw.core.config import ConfigStore
+from miniclaw.core.events import EventLog
 
 
 class TestPluginExecutionContext(unittest.TestCase):

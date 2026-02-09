@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Dict, List
 
-from .constants import (
+from ..core.constants import (
     CONFIG_PATH,
     DEFAULT_JOBS,
     DEFAULT_SKILL_TEMPLATES,
@@ -18,23 +18,23 @@ from .constants import (
     WEB_DIR,
     WORKSPACE_DIR,
 )
-from .config import ConfigStore
-from .events import EventLog, UsageTracker
-from .job_store import JobStore
-from .memory_store import MemoryStore
-from .mcp import MCPServerManager
-from .plugin_manager import create_plugin_manager
-from .plugins import PluginRegistry
-from .script_generator import ScriptGenerator
-from .security import create_security_managers
-from .skills import SkillRegistry
-from .telegram import TelegramService
-from .whatsapp import WhatsAppService
-from .jobs import JobExecutionService
-from .agent import MiniClawAgent
-from .model_client import ModelProviderClient
-from .tools import ToolRunner
-from .util import LOGGER
+from ..core.config import ConfigStore
+from ..core.events import EventLog, UsageTracker
+from ..data.job_store import JobStore
+from ..data.memory_store import MemoryStore
+from ..services.mcp import MCPServerManager
+from ..plugins.plugin_manager import create_plugin_manager
+from ..plugins.plugins import PluginRegistry
+from ..plugins.script_generator import ScriptGenerator
+from ..security.security import create_security_managers
+from ..tools.skills import SkillRegistry
+from ..services.telegram import TelegramService
+from ..services.whatsapp import WhatsAppService
+from ..data.jobs import JobExecutionService
+from ..core.agent import MiniClawAgent
+from ..tools.model_client import ModelProviderClient
+from ..tools.tools import ToolRunner
+from ..core.util import LOGGER
 
 
 class AppState:

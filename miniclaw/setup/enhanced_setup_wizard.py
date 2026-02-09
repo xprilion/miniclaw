@@ -8,9 +8,9 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict
-from .cli_utils import CLIExperience, CLIStyle, CLINavigator
-from .constants import CONFIG_PATH, WORKSPACE_DIR
-from .util import LOGGER
+from ..cli.cli_utils import CLIExperience, CLIStyle, CLINavigator
+from ..core.constants import CONFIG_PATH, WORKSPACE_DIR
+from ..core.util import LOGGER
 
 
 class EnhancedSetupWizard:

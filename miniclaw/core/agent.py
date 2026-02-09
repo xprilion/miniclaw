@@ -9,14 +9,14 @@ import traceback
 from collections import deque
 from typing import Any, Callable, Dict, List, Optional
 
-from .config import ConfigStore
-from .events import EventLog, UsageTracker
-from .memory_store import MemoryStore
-from .model_client import ModelProviderClient
-from .plugins import PluginRegistry
-from .skills import SkillRegistry
-from .tools import ToolRunner
-from .util import LOGGER, truncate_text, utc_now
+from ..core.config import ConfigStore
+from ..core.events import EventLog, UsageTracker
+from ..data.memory_store import MemoryStore
+from ..tools.model_client import ModelProviderClient
+from ..plugins.plugins import PluginRegistry
+from ..tools.skills import SkillRegistry
+from ..tools.tools import ToolRunner
+from ..core.util import LOGGER, truncate_text, utc_now
 
 
 class MiniClawAgent:

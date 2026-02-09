@@ -7,12 +7,12 @@ import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from .config import ConfigStore
-from .events import EventLog
-from .job_store import JobStore
-from .agent import MiniClawAgent
-from .telegram import TelegramService
-from .util import LOGGER, utc_now
+from ..core.config import ConfigStore
+from ..core.events import EventLog
+from ..data.job_store import JobStore
+from ..core.agent import MiniClawAgent
+from ..services.telegram import TelegramService
+from ..core.util import LOGGER, utc_now
 
 
 class JobExecutionService:

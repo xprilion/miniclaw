@@ -13,9 +13,9 @@ import urllib.error
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Dict
 
-from .constants import WEB_DIR, LEGACY_WEB_DIR, WEB_ROUTES
-from .app_state import AppState
-from .util import LOGGER, utc_now
+from ..core.constants import WEB_DIR, LEGACY_WEB_DIR, WEB_ROUTES
+from ..core.app_state import AppState
+from ..core.util import LOGGER, utc_now
 
 
 def make_handler(state: AppState):

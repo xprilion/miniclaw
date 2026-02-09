@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 [project.scripts]
-miniclaw = "miniclaw.cli:run_cli"
+miniclaw = "miniclaw.cli.cli:run_cli"
 miniclaw-service-install = "miniclaw.service_installer:main"
 
 [tool.setuptools.packages.find]
@@ -36,7 +36,7 @@ where = ["."]
 include = ["miniclaw*"]
 
 [tool.setuptools]
-py-modules = ["miniclaw.cli"]
+py-modules = ["miniclaw.cli.cli"]
 
 [tool.bandit]
 # Exclude high severity issues that are intentional for the functionality of the application

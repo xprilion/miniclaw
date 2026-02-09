@@ -9,7 +9,7 @@ class TestInstallCommand(unittest.TestCase):
     def test_install_command_uses_enhanced_wizard(self):
         """Test that the install command uses the enhanced setup wizard."""
         # Import the CLI function
-        from miniclaw.cli import run_install
+        from miniclaw.cli.cli import run_install
         import argparse
         
         # Create a mock args object
@@ -21,7 +21,7 @@ class TestInstallCommand(unittest.TestCase):
 
     def test_cli_commands_updated(self):
         """Test that CLI commands have been updated."""
-        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli.py"
+        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli" / "cli.py"
         content = cli_file.read_text()
         
         # Should NOT have setup command anymore

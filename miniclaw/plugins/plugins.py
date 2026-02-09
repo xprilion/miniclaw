@@ -8,7 +8,7 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .events import EventLog
+from ..core.events import EventLog
 
 
 class PluginRegistry:

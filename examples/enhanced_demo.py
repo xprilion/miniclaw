@@ -17,11 +17,11 @@ import sys
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from miniclaw.security import create_security_managers
-from miniclaw.plugin_manager import create_plugin_manager
-from miniclaw.setup_wizard import SetupWizard
-from miniclaw.config import ConfigStore
-from miniclaw.events import EventLog
+from miniclaw.security.security import create_security_managers
+from miniclaw.plugins.plugin_manager import create_plugin_manager
+from miniclaw.setup.setup_wizard import SetupWizard
+from miniclaw.core.config import ConfigStore
+from miniclaw.core.events import EventLog
 
 
 def demo_security_features():

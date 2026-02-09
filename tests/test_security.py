@@ -5,15 +5,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from miniclaw.security import (
+from miniclaw.security.security import (
     SandboxManager,
     PermissionManager,
     RateLimiter,
     ContentFilter,
     create_security_managers
 )
-from miniclaw.config import ConfigStore
-from miniclaw.events import EventLog
+from miniclaw.core.config import ConfigStore
+from miniclaw.core.events import EventLog
 
 
 class TestSandboxManager(unittest.TestCase):

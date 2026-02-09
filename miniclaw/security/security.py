@@ -8,8 +8,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from .config import ConfigStore
-from .events import EventLog
+from ..core.config import ConfigStore
+from ..core.events import EventLog
 
 
 class SandboxManager:

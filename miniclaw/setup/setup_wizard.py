@@ -7,8 +7,8 @@ import subprocess
 import sys
 from typing import Any, Dict, Optional
 
-from .constants import CONFIG_PATH, WORKSPACE_DIR
-from .util import LOGGER
+from ..core.constants import CONFIG_PATH, WORKSPACE_DIR
+from ..core.util import LOGGER
 
 
 class SetupWizard:

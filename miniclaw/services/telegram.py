@@ -13,11 +13,11 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-from .constants import PAIRING_ALPHABET
-from .config import ConfigStore
-from .events import EventLog
-from .agent import MiniClawAgent
-from .util import LOGGER, utc_now
+from ..core.constants import PAIRING_ALPHABET
+from ..core.config import ConfigStore
+from ..core.events import EventLog
+from ..core.agent import MiniClawAgent
+from ..core.util import LOGGER, utc_now
 
 
 class TelegramAPIError(RuntimeError):

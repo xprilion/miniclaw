@@ -8,8 +8,8 @@ from typing import Any, Dict
 from celery import Celery
 from celery.utils.log import get_task_logger
 
-from .app_state import AppState
-from .util import utc_now
+from ..core.app_state import AppState
+from ..core.util import utc_now
 
 # Configure Celery
 celery_app = Celery('miniclaw')

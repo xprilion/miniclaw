@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import platform
 
-from miniclaw.setup_wizard import run_setup_wizard
-from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
-from miniclaw.cli_utils import CLIExperience, CLIStyle
+from miniclaw.setup.setup_wizard import run_setup_wizard
+from miniclaw.setup.enhanced_setup_wizard import run_enhanced_setup_wizard
+from miniclaw.cli.cli_utils import CLIExperience, CLIStyle
 
 # Global CLI experience instance
 cli = CLIExperience("MiniClaw")
@@ -244,7 +244,7 @@ def manage_windows_service(command: str) -> int:
 def run_install_service(args: argparse.Namespace) -> int:
     """Install the service for the current platform."""
     try:
-        from miniclaw.init_service import install_service
+        from miniclaw.setup.init_service import install_service
         success = install_service()
         if success:
             print(style.success("Service installation completed!"))
@@ -269,7 +269,7 @@ def run_install(args: argparse.Namespace) -> int:
     # Show a simple progress indicator
     print(style.info("Launching setup wizard..."))
     
-    from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
+    from miniclaw.setup.enhanced_setup_wizard import run_enhanced_setup_wizard
     result = run_enhanced_setup_wizard()
     
     if result == 0:
@@ -506,7 +506,7 @@ def run_doctor(args: argparse.Namespace) -> int:
 
 def run_update(args: argparse.Namespace) -> int:
     """Update dependencies and optionally config defaults with enhanced styling."""
-    from miniclaw.cli_utils import CLIProgressBar
+    from miniclaw.cli.cli_utils import CLIProgressBar
     
     workspace = Path(getattr(args, "workspace", None) or os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
     print(style.header("MiniClaw Update"))
@@ -553,8 +553,8 @@ def run_update(args: argparse.Namespace) -> int:
     config_path = workspace / "miniclaw_config.json"
     if config_path.exists():
         try:
-            from miniclaw.config import ConfigStore
-            from miniclaw.events import EventLog
+            from miniclaw.core.config import ConfigStore
+            from miniclaw.core.events import EventLog
             
             print(style.info("Updating config defaults..."))
             event_log = EventLog()

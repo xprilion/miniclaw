@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional
 import openai
 from openai import OpenAI
 
-from .events import EventLog
-from .util import LOGGER
+from ..core.events import EventLog
+from ..core.util import LOGGER
 
 
 class ModelProviderClient:

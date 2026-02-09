@@ -8,12 +8,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .config import ConfigStore
-from .events import EventLog
-from .mcp import MCPServerManager
-from .parser import HTMLTextExtractor
-from .security import SandboxManager
-from .util import extract_json_object, truncate_text
+from ..core.config import ConfigStore
+from ..core.events import EventLog
+from ..services.mcp import MCPServerManager
+from ..core.parser import HTMLTextExtractor
+from ..security.security import SandboxManager
+from ..core.util import extract_json_object, truncate_text
 
 
 class ToolRunner:
@@ -80,7 +80,7 @@ class ToolRunner:
 
     def _resolve_workdir(self, requested: str = "") -> Path:
         cfg = self._cfg()
-        from .constants import BASE_DIR
+        from ..core.constants import BASE_DIR
         configured = str(cfg.get("working_directory") or BASE_DIR).strip() or str(BASE_DIR)
         base = Path(configured).expanduser().resolve()
         request_text = str(requested or "").strip()

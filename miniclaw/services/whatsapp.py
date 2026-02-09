@@ -7,10 +7,10 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-from .config import ConfigStore
-from .events import EventLog
-from .agent import MiniClawAgent
-from .util import LOGGER
+from ..core.config import ConfigStore
+from ..core.events import EventLog
+from ..core.agent import MiniClawAgent
+from ..core.util import LOGGER
 
 
 class WhatsAppError(RuntimeError):

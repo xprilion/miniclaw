@@ -7,9 +7,9 @@ import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .config import ConfigStore
-from .events import EventLog
-from .util import LOGGER
+from ..core.config import ConfigStore
+from ..core.events import EventLog
+from ..core.util import LOGGER
 
 
 class PluginLifecycleHook:

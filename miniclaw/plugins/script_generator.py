@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .util import LOGGER
+from ..core.util import LOGGER
 
 
 class ScriptGenerator:
@@ -87,7 +87,7 @@ class ScriptGenerator:
 
     def _get_current_timestamp(self) -> str:
         """Get current timestamp in ISO format."""
-        from .util import utc_now
+        from ..core.util import utc_now
         return utc_now()
 
     def generate_structured_task_script(

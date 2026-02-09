@@ -10,8 +10,8 @@ import subprocess
 import time
 from typing import Any, Dict, List, Optional
 
-from .config import ConfigStore
-from .events import EventLog
+from ..core.config import ConfigStore
+from ..core.events import EventLog
 
 
 class MCPStdioSession:

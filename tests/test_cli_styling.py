@@ -9,14 +9,14 @@ class TestCLIStyling(unittest.TestCase):
     def test_cli_utils_import(self):
         """Test that CLI utilities can be imported."""
         try:
-            from miniclaw.cli_utils import CLIExperience, CLIStyle, CLIColors
+            from miniclaw.cli.cli_utils import CLIExperience, CLIStyle, CLIColors
             self.assertTrue(True)
         except ImportError:
             self.fail("Failed to import CLI utilities")
 
     def test_cli_utils_functionality(self):
         """Test that CLI utilities have expected functionality."""
-        from miniclaw.cli_utils import CLIExperience, CLIStyle
+        from miniclaw.cli.cli_utils import CLIExperience, CLIStyle
         
         # Test CLIStyle methods
         style = CLIStyle()
@@ -33,12 +33,12 @@ class TestCLIStyling(unittest.TestCase):
 
     def test_cli_utils_file_exists(self):
         """Test that CLI utilities file exists."""
-        utils_file = Path(__file__).parent.parent / "miniclaw" / "cli_utils.py"
+        utils_file = Path(__file__).parent.parent / "miniclaw" / "cli" / "cli_utils.py"
         self.assertTrue(utils_file.exists(), f"Expected {utils_file} to exist")
 
     def test_cli_updated_commands(self):
         """Test that CLI commands have been updated with styling."""
-        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli.py"
+        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli" / "cli.py"
         content = cli_file.read_text()
         
         # Should reference the new styling
