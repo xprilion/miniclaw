@@ -812,6 +812,19 @@ This wizard will guide you through setting up MiniClaw with:
         print("   1. Start the server: miniclaw gateway")
         print("   2. Open http://127.0.0.1:8787 in your browser")
         print("   3. Or chat via CLI: miniclaw agent -m \"Hello!\"")
+        
+        # Offer to set up service
+        print("\n💡 Optional: Set up MiniClaw as a background service")
+        print("   This will make MiniClaw start automatically when your computer boots.")
+        configure_service = input("Do you want to set up the service now? (y/N): ").strip().lower()
+        if configure_service in ["y", "yes"]:
+            try:
+                from .init_service import install_service
+                install_service()
+            except ImportError:
+                print("Service setup module not found.")
+            except Exception as e:
+                print(f"Service setup failed: {e}")
 
         if self.state.get("keydb_installed"):
             print("   4. Start Celery worker: celery -A miniclaw.celery_worker worker --loglevel=info")

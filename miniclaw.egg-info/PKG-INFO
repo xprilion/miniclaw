@@ -16,8 +16,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: litellm>=1.0.0
 Requires-Dist: celery>=5.0.0
+Dynamic: license-file
 
 # MiniClaw
 
@@ -57,7 +59,7 @@ Config and data live in **`~/.miniclaw`**; this repo contains only code.
 **From source (recommended)**
 
 ```bash
-git clone https://github.com/yourusername/miniclaw.git
+git clone https://github.com/xprilion/miniclaw.git
 cd miniclaw
 uv pip install -e .
 miniclaw install  # Interactive setup wizard with KeyDB installation
@@ -230,6 +232,9 @@ The new plugin system provides:
 - [Production Deployment](docs/deployment.md)
 - [Enhancement Summary](docs/enhancement_summary.md)
 - [API Documentation](docs/api.md)
+- [Enhanced Setup Guide](docs/setup.md)
+- [CLI Documentation](docs/cli.md)
+- [CLI Styling System](docs/cli_styling.md)
 
 ## Examples
 

@@ -1,0 +1,25 @@
+[Unit]
+Description=MiniClaw AI Agent
+After=network.target
+
+[Service]
+Type=simple
+User=miniclaw
+Group=miniclaw
+WorkingDirectory=/home/miniclaw/miniclaw
+Environment=PATH=/home/miniclaw/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/miniclaw/.local/bin/miniclaw gateway
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/miniclaw/.miniclaw
+
+[Install]
+WantedBy=multi-user.target

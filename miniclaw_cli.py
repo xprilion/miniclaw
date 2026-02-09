@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+import platform
 
 from miniclaw.setup_wizard import run_setup_wizard
 from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
@@ -82,6 +83,184 @@ def get_workspace_dir() -> Path:
     return Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
 
 
+def run_gateway_service(args: argparse.Namespace) -> int:
+    """Manage the gateway service (start, stop, restart, status)."""
+    command = getattr(args, "gateway_command", None)
+    
+    if not command:
+        return 1
+        
+    os_type = platform.system().lower()
+    
+    if os_type == "linux":
+        return manage_linux_service(command)
+    elif os_type == "darwin":  # macOS
+        return manage_macos_service(command)
+    elif os_type == "windows":
+        return manage_windows_service(command)
+    else:
+        print(style.error(f"Unsupported operating system: {os_type}"))
+        return 1
+
+
+def manage_linux_service(command: str) -> int:
+    """Manage systemd service on Linux."""
+    service_name = "miniclaw"
+    
+    try:
+        if command == "start":
+            # Check if service exists
+            result = subprocess.run(["systemctl", "is-active", service_name], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip() == "active":
+                print(style.info("Service is already running"))
+                return 0
+                
+            subprocess.run(["sudo", "systemctl", "start", service_name], check=True)
+            print(style.success("Service started successfully"))
+            
+        elif command == "stop":
+            subprocess.run(["sudo", "systemctl", "stop", service_name], check=True)
+            print(style.success("Service stopped successfully"))
+            
+        elif command == "restart":
+            subprocess.run(["sudo", "systemctl", "restart", service_name], check=True)
+            print(style.success("Service restarted successfully"))
+            
+        elif command == "status":
+            result = subprocess.run(["systemctl", "is-active", service_name], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip() == "active":
+                print(style.success("Service is running"))
+            else:
+                print(style.warning("Service is not running"))
+                
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(style.error(f"Failed to {command} service: {e}"))
+        return 1
+    except Exception as e:
+        print(style.error(f"Error managing service: {e}"))
+        return 1
+
+
+def manage_macos_service(command: str) -> int:
+    """Manage launchd service on macOS."""
+    plist_label = "com.miniclaw.agent"
+    plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
+    
+    try:
+        if command == "start":
+            if not plist_path.exists():
+                print(style.error("Service not installed. Run 'miniclaw service install' first."))
+                return 1
+                
+            # Check if service is already loaded
+            result = subprocess.run(["launchctl", "list", plist_label], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0 and plist_label in result.stdout:
+                print(style.info("Service is already loaded"))
+                # Check if it's actually running
+                return 0
+                
+            subprocess.run(["launchctl", "load", str(plist_path)], check=True)
+            print(style.success("Service started successfully"))
+            
+        elif command == "stop":
+            subprocess.run(["launchctl", "unload", str(plist_path)], check=True)
+            print(style.success("Service stopped successfully"))
+            
+        elif command == "restart":
+            subprocess.run(["launchctl", "unload", str(plist_path)], 
+                          capture_output=True, check=False)
+            subprocess.run(["launchctl", "load", str(plist_path)], check=True)
+            print(style.success("Service restarted successfully"))
+            
+        elif command == "status":
+            result = subprocess.run(["launchctl", "list", plist_label], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0 and plist_label in result.stdout:
+                print(style.success("Service is loaded"))
+            else:
+                print(style.warning("Service is not loaded"))
+                
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(style.error(f"Failed to {command} service: {e}"))
+        return 1
+    except Exception as e:
+        print(style.error(f"Error managing service: {e}"))
+        return 1
+
+
+def manage_windows_service(command: str) -> int:
+    """Manage Windows service."""
+    service_name = "MiniClaw"
+    
+    try:
+        if command == "start":
+            # Check if service exists
+            result = subprocess.run(["sc", "query", service_name], 
+                                  capture_output=True, text=True)
+            if "does not exist" in result.stdout:
+                print(style.error("Service not installed. Run 'miniclaw service install' first."))
+                return 1
+                
+            subprocess.run(["sc", "start", service_name], check=True)
+            print(style.success("Service started successfully"))
+            
+        elif command == "stop":
+            subprocess.run(["sc", "stop", service_name], check=True)
+            print(style.success("Service stopped successfully"))
+            
+        elif command == "restart":
+            subprocess.run(["sc", "stop", service_name], 
+                          capture_output=True, check=False)
+            # Wait a bit for service to stop
+            import time
+            time.sleep(2)
+            subprocess.run(["sc", "start", service_name], check=True)
+            print(style.success("Service restarted successfully"))
+            
+        elif command == "status":
+            result = subprocess.run(["sc", "query", service_name], 
+                                  capture_output=True, text=True)
+            if "RUNNING" in result.stdout:
+                print(style.success("Service is running"))
+            elif "STOPPED" in result.stdout:
+                print(style.warning("Service is stopped"))
+            else:
+                print(style.warning("Service status unknown"))
+                
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(style.error(f"Failed to {command} service: {e}"))
+        return 1
+    except Exception as e:
+        print(style.error(f"Error managing service: {e}"))
+        return 1
+
+
+def run_install_service(args: argparse.Namespace) -> int:
+    """Install the service for the current platform."""
+    try:
+        from miniclaw.init_service import install_service
+        success = install_service()
+        if success:
+            print(style.success("Service installation completed!"))
+            print(style.info("Follow the instructions above to complete setup."))
+            return 0
+        else:
+            print(style.error("Service installation failed."))
+            return 1
+    except ImportError:
+        print(style.error("Service installation module not found."))
+        return 1
+    except Exception as e:
+        print(style.error(f"Service installation failed: {e}"))
+        return 1
+
+
 def run_install(args: argparse.Namespace) -> int:
     """Run the enhanced interactive setup wizard."""
     print(style.header("MiniClaw Installation"))
@@ -100,6 +279,101 @@ def run_install(args: argparse.Namespace) -> int:
         print(f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}")
         chat_example = 'miniclaw agent -m "Hello!"'
         print(f"  {style.list_item('Chat via CLI: ' + style.code(chat_example))}")
+        
+        # Offer to set up service
+        print(f"\n{style.info('Optional: Set up MiniClaw as a background service')}")
+        print(f"  {style.list_item('Run: ' + style.code('miniclaw service install'))}")
+        print(f"  This will set up MiniClaw to run automatically on system startup.")
+    else:
+        print(style.error("Installation failed. Please check the error messages above."))
+    
+    return result
+
+
+def run_service_command(args: argparse.Namespace) -> int:
+    """Handle service management commands."""
+    command = getattr(args, "service_command", None)
+    
+    if not command:
+        return 1
+        
+    if command == "install":
+        return run_install_service(args)
+    elif command == "uninstall":
+        return run_uninstall_service(args)
+    elif command in ["start", "stop", "restart", "status"]:
+        # Create a mock args object with the gateway command
+        mock_args = argparse.Namespace()
+        mock_args.gateway_command = command
+        return run_gateway_service(mock_args)
+    
+    return 1
+
+
+def run_uninstall_service(args: argparse.Namespace) -> int:
+    """Uninstall the service for the current platform."""
+    os_type = platform.system().lower()
+    
+    try:
+        if os_type == "linux":
+            # Stop and disable service
+            subprocess.run(["sudo", "systemctl", "stop", "miniclaw"], 
+                          capture_output=True, check=False)
+            subprocess.run(["sudo", "systemctl", "disable", "miniclaw"], 
+                          capture_output=True, check=False)
+            subprocess.run(["sudo", "rm", "-f", "/etc/systemd/system/miniclaw.service"], 
+                          check=False)
+            subprocess.run(["sudo", "systemctl", "daemon-reload"], check=False)
+            print(style.success("Linux service uninstalled"))
+            
+        elif os_type == "darwin":  # macOS
+            plist_path = Path.home() / "Library" / "LaunchAgents" / "com.miniclaw.agent.plist"
+            if plist_path.exists():
+                subprocess.run(["launchctl", "unload", str(plist_path)], 
+                              capture_output=True, check=False)
+                plist_path.unlink()
+                print(style.success("macOS service uninstalled"))
+            else:
+                print(style.info("macOS service not found"))
+                
+        elif os_type == "windows":
+            # Stop and delete service
+            subprocess.run(["sc", "stop", "MiniClaw"], 
+                          capture_output=True, check=False)
+            subprocess.run(["sc", "delete", "MiniClaw"], 
+                          capture_output=True, check=False)
+            print(style.success("Windows service uninstalled"))
+            
+        else:
+            print(style.error(f"Unsupported operating system: {os_type}"))
+            return 1
+            
+        return 0
+    except Exception as e:
+        print(style.error(f"Error uninstalling service: {e}"))
+        return 1
+    """Run the enhanced interactive setup wizard."""
+    print(style.header("MiniClaw Installation"))
+    print(style.info("Starting interactive setup wizard with KeyDB support..."))
+    
+    # Show a simple progress indicator
+    print(style.info("Launching setup wizard..."))
+    
+    from miniclaw.enhanced_setup_wizard import run_enhanced_setup_wizard
+    result = run_enhanced_setup_wizard()
+    
+    if result == 0:
+        print(style.success("Installation completed successfully!"))
+        print(style.info("Next steps:"))
+        print(f"  {style.list_item('Start the server: ' + style.code('miniclaw gateway'))}")
+        print(f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}")
+        chat_example = 'miniclaw agent -m "Hello!"'
+        print(f"  {style.list_item('Chat via CLI: ' + style.code(chat_example))}")
+        
+        # Offer to set up service
+        print(f"\n{style.info('Optional: Set up MiniClaw as a background service')}")
+        print(f"  {style.list_item('Run: ' + style.code('python install_service.py'))}")
+        print(f"  This will set up MiniClaw to run automatically on system startup.")
     else:
         print(style.error("Installation failed. Please check the error messages above."))
     
@@ -317,14 +591,29 @@ def run_cli() -> int:
     install_p = sub.add_parser("install", help="Create workspace and guide through prerequisites with interactive setup")
     install_p.set_defaults(_install_yes=False)
     onboard_p = sub.add_parser("onboard", help="Initialize config & workspace (alias: install)")
+    
+    # Service management commands
+    service_p = sub.add_parser("service", help="Manage MiniClaw as a system service")
+    service_sub = service_p.add_subparsers(dest="service_command", required=True)
+    service_sub.add_parser("install", help="Install MiniClaw as a service")
+    service_sub.add_parser("uninstall", help="Uninstall the MiniClaw service")
+    service_sub.add_parser("start", help="Start the MiniClaw service")
+    service_sub.add_parser("stop", help="Stop the MiniClaw service")
+    service_sub.add_parser("restart", help="Restart the MiniClaw service")
+    service_sub.add_parser("status", help="Check the status of the MiniClaw service")
     uninstall_p = sub.add_parser("uninstall", help="Remove workspace directory")
     uninstall_p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
     doctor_p = sub.add_parser("doctor", help="Check Python, workspace, config, Ollama, server")
     status_p = sub.add_parser("status", help="Show status (alias: doctor)")
     update_p = sub.add_parser("update", help="Update dependencies and existing installation")
-    gateway_p = sub.add_parser("gateway", help="Start the server (web + Telegram)")
+    gateway_p = sub.add_parser("gateway", help="Start the server (web + Telegram) or manage as service")
     gateway_p.add_argument("--host", default=os.getenv("MINICLAW_HOST", "127.0.0.1"), help="Bind host")
     gateway_p.add_argument("--port", type=int, default=int(os.getenv("MINICLAW_PORT", "8787")), help="Bind port")
+    gateway_sub = gateway_p.add_subparsers(dest="gateway_command", help="Gateway service management commands", required=False)
+    gateway_sub.add_parser("start", help="Start gateway as a service")
+    gateway_sub.add_parser("stop", help="Stop gateway service")
+    gateway_sub.add_parser("restart", help="Restart gateway service")
+    gateway_sub.add_parser("status", help="Check gateway service status")
     models = sub.add_parser("models", help="List provider models")
     models.add_argument("--provider", default="", help="Provider id (default provider if omitted)")
     usage = sub.add_parser("usage", help="Get token usage summary")
@@ -444,6 +733,8 @@ def run_cli() -> int:
         return run_install(args)
     if args.command == "onboard":
         return run_install(args)
+    if args.command == "service":
+        return run_service_command(args)
     if args.command == "uninstall":
         return run_uninstall(args)
     if args.command == "doctor" or args.command == "status":
@@ -498,6 +789,9 @@ def run_cli() -> int:
     if args.command == "update":
         return run_update(args)
     if args.command == "gateway":
+        if getattr(args, "gateway_command", None):
+            return run_gateway_service(args)
+        # Original gateway functionality - start the server directly
         if getattr(args, "host", None):
             os.environ["MINICLAW_HOST"] = str(args.host)
         if getattr(args, "port", None) is not None:

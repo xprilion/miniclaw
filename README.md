@@ -1,51 +1,44 @@
 # MiniClaw
 
-MiniClaw is a production-ready, secure, and minimal AI agent infrastructure inspired by OpenClaw. Originally designed as a minimal local agent optimized for smaller models, MiniClaw has been enhanced with enterprise-grade features while maintaining its lightweight nature and ease of use.
+MiniClaw is a secure, minimal AI agent infrastructure built for production environments. Inspired by OpenClaw, it provides a lightweight yet powerful platform for running AI agents locally with enterprise-grade features.
 
-Config and data live in **`~/.miniclaw`**; this repo contains only code.
+Configuration and data are stored in `~/.miniclaw`, while this repository contains only the core code.
 
 [![Build](https://github.com/xprilion/miniclaw/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/xprilion/miniclaw/actions/workflows/ci.yml)
 
 ## Key Features
 
-### 🛡️ Enhanced Security
-- **Advanced Sandboxing**: Path validation and command filtering
-- **Permission Controls**: Fine-grained access management
-- **Rate Limiting**: User and IP-based rate limiting
-- **Content Filtering**: Automatic redaction of sensitive information
-- **Input Sanitization**: Protection against injection attacks
+### Security
+- Advanced sandboxing with path validation
+- Permission controls and rate limiting
+- Content filtering and input sanitization
 
-### 🚀 Production Ready
-- **Comprehensive Monitoring**: Detailed event logging and tracking
-- **Error Handling**: Robust error recovery and reporting
-- **Scalable Architecture**: Designed for production deployment
-- **CI/CD Integration**: Automated testing and deployment pipelines
+### Production Ready
+- Comprehensive monitoring and error handling
+- Scalable architecture with CI/CD integration
+- Detailed event logging and tracking
 
-### 👩‍💻 Developer Friendly
-- **Extensible Plugin System**: Lifecycle hooks and execution contexts
-- **Comprehensive Testing**: Full test suite with CI/CD integration
-- **Rich API**: RESTful API for all operations
-- **Detailed Documentation**: Architecture docs and examples
+### Developer Friendly
+- Extensible plugin system with lifecycle hooks
+- Rich API and comprehensive testing
+- Well-documented architecture
 
-### 🌟 User Experience
-- **Interactive Setup Wizard**: Guided installation for non-developers
-- **Modern Web Interface**: Responsive UI with dark/light mode
-- **Enhanced Monitoring Dashboard**: Visual insights into system performance
-- **Multiple Provider Support**: Ollama, OpenAI, OpenRouter, and more
+### User Experience
+- Interactive setup wizard
+- Modern web interface with dark/light mode
+- Multiple AI provider support (Ollama, OpenAI, OpenRouter, etc.)
 
-## Install
+## Installation
 
-**From source (recommended)**
-
+From source (recommended):
 ```bash
 git clone https://github.com/xprilion/miniclaw.git
 cd miniclaw
 uv pip install -e .
-miniclaw install  # Interactive setup wizard with KeyDB installation
+miniclaw install
 ```
 
-**With uv (if published)**
-
+With uv (if published):
 ```bash
 uv tool install miniclaw
 miniclaw setup
@@ -53,195 +46,104 @@ miniclaw setup
 
 ## Quick Start
 
-1. **Initialize** (creates `~/.miniclaw` with config, memory, skills, plugins)
-
+1. Initialize (creates `~/.miniclaw` with config, memory, skills, plugins)
    ```bash
-   miniclaw install  # Interactive setup wizard with KeyDB installation (recommended for new users)
+   miniclaw install
    ```
 
-2. **Configure** — Edit `~/.miniclaw/miniclaw_config.json` (Ollama URL, Telegram token, etc.).
+2. Configure by editing `~/.miniclaw/miniclaw_config.json`
 
-3. **Start the server** (web + Telegram)
-
+3. Start the server
    ```bash
    miniclaw gateway
    ```
 
-4. **Chat**
-
+4. Chat via CLI or web UI
    ```bash
    miniclaw agent -m "What is 2+2?"
    ```
+   Or visit http://127.0.0.1:8787
 
-   Or open http://127.0.0.1:8787 and use the web UI.
+## Running as a Service
 
-5. **Check status**
+To run MiniClaw as a background service that automatically starts on boot:
 
-   ```bash
-   miniclaw status
-   ```
+```bash
+python install_service.py
+```
 
-## CLI Reference
+This will detect your operating system and create the appropriate service configuration files. Follow the on-screen instructions to complete the installation.
 
-| Command | Description |
-|---------|-------------|
-| `miniclaw install` | Run the enhanced interactive setup wizard with KeyDB installation |
-| `miniclaw onboard` | Initialize config & workspace (same as install) |
-| `miniclaw agent -m "..."` | Chat with the agent (colored output) |
-| `miniclaw gateway` | Start the server (web + Telegram) with startup feedback |
-| `miniclaw status` | Check system status with color-coded results |
-| `miniclaw chat "..."` | Send chat message with styled responses |
-| `miniclaw update` | Update dependencies with progress indicators |
-| `miniclaw uninstall` | Remove workspace with confirmation and preview |
-| `miniclaw doctor` | Comprehensive system diagnostics |
-| `miniclaw health` | Check server health status |
-| `miniclaw models` | List available AI models |
-| `miniclaw usage` | Show token usage statistics |
-| `miniclaw runtime` | Display runtime information |
-| `miniclaw skills` | Manage skill files |
-| `miniclaw jobs` | Manage scheduled jobs |
-| `miniclaw history` | View chat history |
-| `miniclaw events` | Monitor system events |
-| `miniclaw memory` | Manage memory files |
-| `miniclaw config` | Manage configuration |
-| `miniclaw providers` | Manage AI providers |
-| `miniclaw telegram` | Manage Telegram integration |
+See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions for each platform.
 
-Use `miniclaw --help` for detailed command help and `miniclaw <command> --help` for specific command options.
+## Available Commands
 
-## What It Includes
+### Core Commands
+- `install` - Create workspace and guide through prerequisites with interactive setup
+- `uninstall [--yes]` - Remove workspace directory
+- `gateway [--host HOST] [--port PORT]` - Start the server (web + Telegram)
+- `doctor` - Check Python, workspace, config, Ollama, server
+- `status` - Show system status (alias for doctor)
+- `update` - Update dependencies and existing installation
+- `health` - Check /api/health
 
-- Split web UI routes:
-  - `/chat`
-  - `/setup`
-  - `/skills`
-  - `/jobs`
-  - `/monitoring`
-- Light/dark mode toggle.
-- JSON config file (`miniclaw_config.json`) editable directly.
-- Multi-provider model configuration (Ollama, OpenAI-compatible, LiteLLM, OpenRouter), with default provider and per-provider system prompt overrides.
-- Channels setup flow in `/setup` (Telegram, WhatsApp/wacli placeholder, Email placeholder).
-- Telegram bot integration with pairing-code authentication and single-chat binding.
-- Telegram progress updates during longer tasks plus typing indicators while work is in progress.
-- Built-in job management for recurring agent tasks.
-- Skills as markdown files with UI CRUD.
-- Default skill files and default jobs.
-- Skill relevance matching (skills are guidance, not always-on prompt injection).
-- Full monitoring events for prompts/actions/network/errors.
-- Monitoring token usage totals by provider/model.
-- Long-term memory files (`soul.md`, `user.md`, `project.md`, `journal.md`) with API + UI editing; agent reads memory into prompts and appends journal entries.
-- CLI parity (`miniclaw_cli.py`) for core UI actions.
-- **Enhanced Security**: Advanced sandboxing, permission controls, and input validation for safe tool execution.
-- **Production Ready**: Deployment guides and security hardening recommendations.
-- **Enhanced Plugin System**: New plugin architecture with lifecycle hooks and execution contexts.
-- **Improved Setup**: Interactive wizard for easy configuration.
+### Agent Interaction
+- `agent [-m MESSAGE] [MESSAGE_POS] [--provider PROVIDER] [--json] [--stdin]` - Chat with the agent
+- `chat [MESSAGE] [--source SOURCE] [--provider PROVIDER] [--stdin] [--json]` - Send chat message
+- `history [--limit LIMIT]` - Get chat history
 
-## Routes
+### Configuration
+- `config get` - Get normalized config JSON
+- `config set --file FILE` - PUT config JSON from file
+- `config raw-get` - Get raw config text
+- `config raw-set [--file FILE] [--stdin]` - PUT raw config text from file or stdin
 
-- Landing: `/`
-- Chat: `/chat`
-- Setup: `/setup`
-- Skills: `/skills`
-- Jobs: `/jobs`
-- Monitoring: `/monitoring`
+### AI Providers
+- `providers list` - List configured model providers
+- `providers default --id ID` - Set default provider
+- `providers delete --id ID` - Delete provider
+- `providers save --id ID --name NAME --type TYPE --base-url URL --model MODEL [--temperature TEMP] [--timeout TIMEOUT] [--api-key KEY] [--prompt-override PROMPT] [--disable] [--no-verify-tls]` - Create or update provider
 
-## Enhanced Security Features
+### Memory Management
+- `memory list` - List memory files and content
+- `memory get --name NAME` - Read one memory file
+- `memory save --name NAME [--file FILE] [--stdin]` - Save a memory file
 
-MiniClaw now includes comprehensive security mechanisms:
+### Skills
+- `skills` - List skills
+- `skill-save --id ID [--file FILE] [--stdin]` - Save markdown skill file
+- `skill-delete --id ID` - Delete markdown skill file
 
-### Sandboxing
-- File path validation to prevent access outside workspace
-- Command filtering to block dangerous operations
-- Input sanitization to prevent injection attacks
+### Jobs
+- `jobs status` - Get jobs status
+- `jobs save --id ID --name NAME --prompt PROMPT [--interval INTERVAL] [--disabled] [--telegram-chat-id ID]` - Create or update job
+- `jobs delete --id ID` - Delete job
+- `jobs run --id ID` - Trigger job now
 
-### Permission Controls
-- Fine-grained tool access permissions
-- User and group-based access control
-- Feature flag management
+### Telegram Integration
+- `telegram restart` - Restart Telegram poller
+- `telegram test --chat-id CHAT_ID [--message MESSAGE]` - Send Telegram test message
+- `telegram pairings` - Get pairing status and requests
+- `telegram pair-start [--ttl TTL]` - Create Telegram pairing code
+- `telegram pair-confirm --request-id REQUEST_ID` - Confirm pairing request
+- `telegram pair-reject --request-id REQUEST_ID` - Reject pairing request
+- `telegram unbind` - Remove currently bound Telegram chat
 
-### Rate Limiting
-- User-based rate limiting
-- IP-based rate limiting
-- Configurable limits and windows
-
-### Content Filtering
-- Automatic redaction of sensitive information (API keys, passwords, etc.)
-- Entropy-based secret detection
-- Customizable filtering rules
-
-## Enhanced Plugin System
-
-The new plugin system provides:
-
-### Lifecycle Management
-- Load, enable, disable, and unload operations
-- Lifecycle hooks (on_load, on_enable, on_disable, on_unload)
-- Plugin-specific execution contexts
-
-### Hook System
-- Pre-prompt hooks for modifying agent prompts
-- Post-response hooks for processing agent responses
-- Message processing hooks
-- Tool execution hooks
-- Model response hooks
-
-### Extensibility
-- Rich plugin context with data storage
-- Event logging integration
-- Backward compatibility with existing plugins
-
-## Enhanced Web Interface
-
-### Modern Dashboard
-- Visual monitoring and analytics
-- Token usage tracking
-- Event timeline visualization
-- Performance metrics
-
-### Improved Setup
-- Tabbed configuration interface
-- Provider testing capabilities
-- Real-time validation
-- Enhanced user experience
+### System Information
+- `models [--provider PROVIDER]` - List provider models
+- `usage [--limit LIMIT]` - Get token usage summary
+- `runtime` - Get runtime snapshot
+- `events [--since-id SINCE_ID] [--limit LIMIT]` - Get monitoring events
+- `plugins list` - List plugins
+- `plugins reload` - Reload plugins
 
 ## Documentation
 
 - [Getting Started Guide](docs/getting_started.md)
 - [Architecture Overview](docs/architecture.md)
 - [Production Deployment](docs/deployment.md)
-- [Enhancement Summary](docs/enhancement_summary.md)
 - [API Documentation](docs/api.md)
-- [Enhanced Setup Guide](docs/setup.md)
 - [CLI Documentation](docs/cli.md)
-- [CLI Styling System](docs/cli_styling.md)
-
-## Examples
-
-- [Enhanced Features Demo](examples/enhanced_demo.py)
-- [Example Plugin](plugins/example_enhanced_plugin.py)
-- [Configuration Examples](miniclaw_config.example.json)
-
-## Testing
-
-Run the test suite:
-
-```bash
-python -m pytest tests/ -v
-```
-
-Or run all tests:
-
-```bash
-python tests/run_tests.py
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a pull request
 
 ## License
 

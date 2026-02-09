@@ -29,6 +29,7 @@ classifiers = [
 
 [project.scripts]
 miniclaw = "miniclaw_cli:run_cli"
+miniclaw-service-install = "install_service:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
