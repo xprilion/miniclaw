@@ -8,7 +8,7 @@ class TestCLIConsistency(unittest.TestCase):
 
     def test_cli_functions_updated(self):
         """Test that CLI functions have been updated with styling."""
-        cli_file = Path(__file__).parent.parent / "miniclaw_cli.py"
+        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli.py"
         content = cli_file.read_text()
         
         # Should reference the new styling
@@ -24,7 +24,7 @@ class TestCLIConsistency(unittest.TestCase):
 
     def test_cli_functions_exist(self):
         """Test that updated CLI functions exist and are callable."""
-        from miniclaw_cli import run_install, run_doctor, run_update, run_uninstall
+        from miniclaw.cli import run_install, run_doctor, run_update, run_uninstall
         
         # Test that functions exist (we can't easily test execution without mocks)
         self.assertTrue(callable(run_install))
@@ -44,7 +44,7 @@ class TestCLIConsistency(unittest.TestCase):
 
     def test_consistent_error_handling(self):
         """Test that CLI has consistent error handling patterns."""
-        cli_file = Path(__file__).parent.parent / "miniclaw_cli.py"
+        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli.py"
         content = cli_file.read_text()
         
         # Should use style.error for error messages

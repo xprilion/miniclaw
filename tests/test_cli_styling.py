@@ -38,7 +38,7 @@ class TestCLIStyling(unittest.TestCase):
 
     def test_cli_updated_commands(self):
         """Test that CLI commands have been updated with styling."""
-        cli_file = Path(__file__).parent.parent / "miniclaw_cli.py"
+        cli_file = Path(__file__).parent.parent / "miniclaw" / "cli.py"
         content = cli_file.read_text()
         
         # Should reference the new styling

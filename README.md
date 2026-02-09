@@ -72,7 +72,7 @@ The installation process includes optional KeyDB installation for job execution 
 To run MiniClaw as a background service that automatically starts on boot:
 
 ```bash
-python install_service.py
+python -m miniclaw.service_installer
 ```
 
 This will detect your operating system and create the appropriate service configuration files. Follow the on-screen instructions to complete the installation.

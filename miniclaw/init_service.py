@@ -250,7 +250,7 @@ def main():
             print("\nService setup failed. You can manually set up the service later.")
     else:
         print("Skipping service setup. You can set up the service later by running:")
-        print("  python install_service.py")
+        print("  python -m miniclaw.service_installer")
 
 
 if __name__ == "__main__":
