@@ -1218,7 +1218,8 @@ def run_cli() -> int:
                 wanted = str(args.id).strip().lower()
                 if not wanted:
                     raise RuntimeError("--id is required")
-                if not any(str(item.get("id") or "").strip().lower() == wanted for item in items if isinstance(item, dict)):
+                if not any(str(item.get("id") or "").strip().lower() == wanted
+                           for item in items if isinstance(item, dict)):
                     raise RuntimeError(f"Provider not found: {wanted}")
                 providers_obj["default_provider_id"] = wanted
                 config_obj["providers"] = providers_obj
@@ -1230,7 +1231,8 @@ def run_cli() -> int:
                 wanted = str(args.id).strip().lower()
                 if not wanted:
                     raise RuntimeError("--id is required")
-                kept = [item for item in items if isinstance(item, dict) and str(item.get("id") or "").strip().lower() != wanted]
+                kept = [item for item in items if isinstance(item, dict) and
+                        str(item.get("id") or "").strip().lower() != wanted]
                 if len(kept) == len(items):
                     raise RuntimeError(f"Provider not found: {wanted}")
                 if not kept:
@@ -1433,7 +1435,8 @@ def run_cli() -> int:
                     if run_result.get("started", False):
                         print(style.success(f"Job '{args.id}' started successfully"))
                     else:
-                        print(style.warning(f"Job '{args.id}' not started: {run_result.get('reason', 'Unknown reason')}"))
+                        print(style.warning(f"Job '{args.id}' not started: "
+                                            f"{run_result.get('reason', 'Unknown reason')}"))
                 else:
                     print(style.error(f"Failed to run job: {result.get('error', 'Unknown error')}"))
                 return 0

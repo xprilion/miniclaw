@@ -1,2 +1,0 @@
-[console_scripts]
-miniclaw = miniclaw_cli:run_cli
