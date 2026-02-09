@@ -1,4 +1,5 @@
 """Celery worker for executing MiniClaw jobs."""
+
 from __future__ import annotations
 
 import os
@@ -11,15 +12,30 @@ from celery.utils.log import get_task_logger
 from ..core.app_state import AppState
 from ..core.util import utc_now
 
-# Configure Celery
-celery_app = Celery('miniclaw')
+# Configure Celery with support for different databases
+broker_url = os.getenv("CELERY_BROKER_URL")
+result_backend = os.getenv("CELERY_RESULT_BACKEND")
+
+# If no explicit URLs are set, try to detect the database type
+if not broker_url or not result_backend:
+    # Check for database type from environment or default to valkey
+    db_type = os.getenv("MINICLAW_DATABASE_TYPE", "valkey").lower()
+    db_port = os.getenv("MINICLAW_DATABASE_PORT", "6379")
+    db_host = os.getenv("MINICLAW_DATABASE_HOST", "localhost")
+
+    if not broker_url:
+        broker_url = f"{db_type}://{db_host}:{db_port}/0"
+    if not result_backend:
+        result_backend = f"{db_type}://{db_host}:{db_port}/0"
+
+celery_app = Celery("miniclaw")
 celery_app.conf.update(
-    broker_url=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
-    result_backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0'),
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='UTC',
+    broker_url=broker_url,
+    result_backend=result_backend,
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
     enable_utc=True,
 )
 
@@ -70,7 +86,9 @@ def execute_miniclaw_job(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
             except Exception as exc:
                 logger.error(f"Failed to send job output to Telegram: {exc}")
 
-        logger.info(f"Job completed id={job_id} duration={result.get('duration_seconds', 0)}s")
+        logger.info(
+            f"Job completed id={job_id} duration={result.get('duration_seconds', 0)}s"
+        )
 
         return {
             "ok": True,

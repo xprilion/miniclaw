@@ -15,7 +15,7 @@ The `miniclaw install` command launches a comprehensive setup wizard with the fo
    - Review and confirm configuration before applying
 
 2. **Automatic Dependency Management**
-   - KeyDB installation and configuration
+   - Valkey installation and configuration
    - Ollama installation (if needed)
    - Package manager detection (uv/pip)
    - Service management (start/stop/status)
@@ -56,40 +56,10 @@ Each provider includes specific configuration options:
 - Endpoint URLs
 - Performance settings
 
-#### 5. KeyDB Installation
-Automatic KeyDB installation and setup:
-- Detection of existing KeyDB/Redis installations
+#### 5. Valkey Installation
+Automatic Valkey installation and setup:
+- Detection of existing Valkey/Redis installations
 - Automatic installation for supported systems
-- Service management configuration
-- Python client installation
-
-#### 6. Telegram Configuration
-Optional Telegram bot setup:
-- Bot token configuration
-- Chat restrictions
-- Pairing code settings
-- Progress update intervals
-
-#### 7. Review & Confirm
-Configuration summary and verification:
-- Complete settings overview
-- Final confirmation before installation
-- Option to edit any settings
-
-#### 8. Installation
-Execution of the setup process:
-- Workspace directory creation
-- Configuration file generation
-- Default content creation
-- Service initialization
-
-### KeyDB Integration
-
-MiniClaw uses KeyDB for job execution management. The setup wizard provides:
-
-#### Automatic Installation
-- Linux package manager integration (apt/yum)
-- Direct download and installation
 - Service daemon configuration
 - Port and security settings
 
@@ -263,13 +233,13 @@ miniclaw jobs save \
    # Or modify config file
    ```
 
-3. **KeyDB Installation Failures**
+3. **Valkey Installation Failures**
    ```bash
    # Solution: Install manually or use Redis
    # On Ubuntu:
-   sudo apt install redis-server
+   sudo apt install valkey-server
    # On macOS:
-   brew install redis
+   brew install valkey
    ```
 
 4. **Provider Connectivity Issues**

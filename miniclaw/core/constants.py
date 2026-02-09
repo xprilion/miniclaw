@@ -1,4 +1,5 @@
 """Paths, env keys, routes, and default config templates."""
+
 from __future__ import annotations
 
 import os
@@ -8,12 +9,23 @@ from typing import Any, Dict, List
 # Package lives in <project_root>/miniclaw/, so project root is parent of this file's parent
 _ROOT = Path(__file__).resolve().parent.parent
 # Default agent workspace: config, memory, skills, plugins live here
-WORKSPACE_DIR = Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
-CONFIG_PATH = Path(os.getenv("MINICLAW_CONFIG", str(WORKSPACE_DIR / "miniclaw_config.json"))).expanduser().resolve()
+WORKSPACE_DIR = (
+    Path(os.getenv("MINICLAW_WORKSPACE", "~/.miniclaw")).expanduser().resolve()
+)
+CONFIG_PATH = (
+    Path(os.getenv("MINICLAW_CONFIG", str(WORKSPACE_DIR / "miniclaw_config.json")))
+    .expanduser()
+    .resolve()
+)
 SKILLS_DIR = WORKSPACE_DIR / "skills"
 PLUGINS_DIR = WORKSPACE_DIR / "plugins"
 MEMORY_DIR = WORKSPACE_DIR / "memory"
 JOBS_DIR = WORKSPACE_DIR / "jobs"
+# Template directories for setup
+TEMPLATES_DIR = _ROOT / "setup" / "templates"
+SKILLS_TEMPLATE_DIR = TEMPLATES_DIR / "skills"
+PLUGINS_TEMPLATE_DIR = TEMPLATES_DIR / "plugins"
+MEMORY_TEMPLATE_DIR = TEMPLATES_DIR / "memory"
 # For static web assets (dev: project root/web; installed: package or project)
 WEB_DIR = _ROOT / "web-built"
 # Fallback for legacy web assets
@@ -52,28 +64,7 @@ WEB_ROUTES: Dict[str, str] = {
 
 PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-DEFAULT_SKILL_TEMPLATES: Dict[str, str] = {
-    "issue_triage": (
-        "# Issue Triage\n\n"
-        "keywords: bug,incident,error,regression,fix,root cause\n\n"
-        "When queries involve production issues, prioritize:\n"
-        "1. observed symptoms,\n"
-        "2. likely root causes,\n"
-        "3. next diagnostic steps,\n"
-        "4. rollback/mitigation options.\n"
-    ),
-    "research_compare": (
-        "# Research Compare\n\n"
-        "keywords: compare,comparison,tradeoff,options,evaluate\n\n"
-        "For comparison requests, provide concise option tables with clear pros/cons and decision criteria.\n"
-    ),
-    "ship_plan": (
-        "# Ship Plan\n\n"
-        "keywords: plan,roadmap,milestone,deliver,ship,launch\n\n"
-        "For execution planning, return phased steps with dependencies, risks, and success checks.\n"
-    ),
-}
-
+# Default jobs (kept as constants since they're not file-based)
 DEFAULT_JOBS: List[Dict[str, Any]] = [
     {
         "id": "health_digest",
@@ -92,26 +83,3 @@ DEFAULT_JOBS: List[Dict[str, Any]] = [
         "send_to_telegram_chat_id": "",
     },
 ]
-
-DEFAULT_MEMORY_FILES: Dict[str, str] = {
-    "soul.md": (
-        "# Soul\n\n"
-        "Core stance:\n"
-        "- Be clear, concrete, and practical.\n"
-        "- Prefer explicit tradeoffs over vague advice.\n"
-        "- Keep actions observable.\n"
-    ),
-    "user.md": (
-        "# User Profile\n\n"
-        "- Preferred style: direct, low fluff.\n"
-        "- Update this file when stable user preferences become clear.\n"
-    ),
-    "project.md": (
-        "# Project Context\n\n"
-        "- Record durable architecture decisions, constraints, and known risks.\n"
-    ),
-    "journal.md": (
-        "# Journal\n\n"
-        "Append short timestamped summaries of important interactions and outcomes.\n"
-    ),
-}

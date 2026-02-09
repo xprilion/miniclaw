@@ -44,7 +44,7 @@ uv tool install miniclaw
 miniclaw setup
 ```
 
-The installation process includes optional KeyDB installation for job execution support.
+The installation process includes optional database installation (Valkey, KeyDB, or Redis) for job execution support.
 
 ## Quick Start
 

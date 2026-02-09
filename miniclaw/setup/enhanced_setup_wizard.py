@@ -1,4 +1,5 @@
 """Enhanced interactive setup wizard for MiniClaw with KeyDB installation and navigation."""
+
 from __future__ import annotations
 import json
 import platform
@@ -29,19 +30,24 @@ class EnhancedSetupWizard:
             "Prerequisites Check",
             "Workspace Setup",
             "Model Provider Configuration",
-            "KeyDB Installation",
+            "Database Installation",
             "Telegram Configuration",
             "Review & Confirm",
-            "Installation"
+            "Installation",
         ]
 
     def run(self) -> bool:
         """Run the enhanced setup wizard with interactive navigation."""
         try:
-            self.cli.welcome("MiniClaw Enhanced Setup Wizard", "Step-by-step installation with KeyDB support")
+            self.cli.welcome(
+                "MiniClaw Enhanced Setup Wizard",
+                "Step-by-step installation with KeyDB support",
+            )
             while self.current_step < len(self.steps):
                 step_name = self.steps[self.current_step]
-                print(f"\n{self.style.step(step_name, step_num=self.current_step + 1, total_steps=len(self.steps))}")
+                print(
+                    f"\n{self.style.step(step_name, step_num=self.current_step + 1, total_steps=len(self.steps))}"
+                )
                 if step_name == "Welcome":
                     if not self._show_welcome():
                         return False
@@ -88,36 +94,44 @@ class EnhancedSetupWizard:
     def _navigation_menu(self) -> str:
         """Show navigation menu and return user choice."""
         print("\n--- Navigation ---")
-        print("1. Continue to next step")
-        print("2. Go back to previous step")
-        print("3. Jump to specific step")
+        print("Press Enter to continue to next step")
+        print("Type 'b' or 'back' to go back to previous step")
+        print("Type 'j' or 'jump' to jump to specific step")
+        print("Type 'q' or 'quit' to quit setup")
+
         # Show available steps for jumping
         print("\nAvailable steps:")
         for i, step in enumerate(self.steps):
             marker = "→" if i == self.current_step else " "
             current = "(current)" if i == self.current_step else ""
             print(f"   {marker} {i + 1}. {step} {current}")
-        print("0. Quit setup")
+
         while True:
             try:
-                choice = input("\nEnter your choice (0-3): ").strip()
-                if choice == "0":
-                    return "quit"
-                elif choice == "1":
+                choice = input("\nNavigation choice: ").strip().lower()
+                if choice in ["", "continue", "next"]:
                     return "next"
-                elif choice == "2":
+                elif choice in ["b", "back"]:
                     return "back"
-                elif choice == "3":
-                    step_choice = input("Enter step number to jump to (1-{}): ".format(len(self.steps))).strip()
+                elif choice in ["j", "jump"]:
+                    step_choice = input(
+                        "Enter step number to jump to (1-{}): ".format(len(self.steps))
+                    ).strip()
                     step_index = int(step_choice) - 1
                     if 0 <= step_index < len(self.steps):
                         return f"goto_{step_index}"
                     else:
                         print("Invalid step number.")
+                elif choice in ["q", "quit"]:
+                    return "quit"
                 else:
-                    print("Invalid choice. Please try again.")
+                    print(
+                        "Invalid choice. Press Enter to continue, 'b' to go back, 'j' to jump, or 'q' to quit."
+                    )
             except ValueError:
-                print("Invalid choice. Please try again.")
+                print(
+                    "Invalid choice. Press Enter to continue, 'b' to go back, 'j' to jump, or 'q' to quit."
+                )
 
     def _show_welcome(self) -> bool:
         """Show welcome screen."""
@@ -130,8 +144,12 @@ This wizard will guide you through setting up MiniClaw with:
 {self.style.list_item("Default skills and memory files")}
 {self.style.dim("You can navigate between steps using the menu at the end of each step.")}
 """)
-        ready = self.navigator.get_input("Press Enter to begin setup, or 'q' to quit").strip().lower()
-        return ready != 'q'
+        ready = (
+            self.navigator.get_input("Press Enter to begin setup, or 'q' to quit")
+            .strip()
+            .lower()
+        )
+        return ready != "q"
 
     def _check_prerequisites_step(self) -> bool:
         """Check system prerequisites."""
@@ -140,12 +158,20 @@ This wizard will guide you through setting up MiniClaw with:
         if sys.version_info < (3, 9):
             print(self.style.error("Python 3.9 or higher is required"))
             return False
-        print(self.style.success(f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"))
+        print(
+            self.style.success(
+                f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            )
+        )
         # Check for package managers
         has_uv = shutil.which("uv") is not None
         has_pip = shutil.which("pip") is not None
         if not has_uv and not has_pip:
-            print(self.style.error("Either 'uv' or 'pip' is required for package management"))
+            print(
+                self.style.error(
+                    "Either 'uv' or 'pip' is required for package management"
+                )
+            )
             return False
         package_manager = "uv" if has_uv else "pip"
         print(self.style.success(f"Package manager: {package_manager}"))
@@ -157,9 +183,13 @@ This wizard will guide you through setting up MiniClaw with:
     def _workspace_setup_step(self) -> bool:
         """Set up workspace directory."""
         print(f"{self.style.sub_section('Workspace Setup')}")
-        print(f"Default workspace location: {self.style.highlight(str(self.workspace))}")
+        print(
+            f"Default workspace location: {self.style.highlight(str(self.workspace))}"
+        )
         # Allow user to customize workspace location
-        custom_path = self.navigator.get_input("\nEnter custom workspace path (or press Enter to use default)").strip()
+        custom_path = self.navigator.get_input(
+            "\nEnter custom workspace path (or press Enter to use default)"
+        ).strip()
         if custom_path:
             try:
                 custom_workspace = Path(custom_path).expanduser().resolve()
@@ -176,12 +206,14 @@ This wizard will guide you through setting up MiniClaw with:
             self.workspace / "skills",
             self.workspace / "plugins",
             self.workspace / "jobs",
-            self.workspace / "generated_scripts"
+            self.workspace / "generated_scripts",
         ]
         print(f"\n{self.style.info('The following directories will be created:')}")
         for directory in directories:
             print(f"   {self.style.list_item(str(directory))}")
-        confirm = self.navigator.confirm("\nContinue with workspace setup?", default=True)
+        confirm = self.navigator.confirm(
+            "\nContinue with workspace setup?", default=True
+        )
         if not confirm:
             return False
         self.state["workspace"] = str(self.workspace)
@@ -198,29 +230,29 @@ This wizard will guide you through setting up MiniClaw with:
                 "description": "Run models locally on your machine",
                 "type": "ollama",
                 "needs_install": True,
-                "install_instructions": "Visit https://ollama.com and follow installation instructions"
+                "install_instructions": "Visit https://ollama.com and follow installation instructions",
             },
             {
                 "id": "openai_api",
                 "name": "OpenAI API",
                 "description": "Use OpenAI's GPT models (requires API key)",
                 "type": "openai_compatible",
-                "needs_install": False
+                "needs_install": False,
             },
             {
                 "id": "openrouter",
                 "name": "OpenRouter",
                 "description": "Access to many models through one API (requires API key)",
                 "type": "openrouter",
-                "needs_install": False
+                "needs_install": False,
             },
             {
                 "id": "openapi_compatible",
                 "name": "OpenAPI Compatible",
                 "description": "Generic OpenAPI compatible provider (requires base URL and API key)",
                 "type": "openai_compatible",
-                "needs_install": False
-            }
+                "needs_install": False,
+            },
         ]
         print("\nAvailable providers:")
         for i, provider in enumerate(providers, 1):
@@ -230,7 +262,7 @@ This wizard will guide you through setting up MiniClaw with:
         while True:
             try:
                 choice = input(f"\nSelect provider (1-{len(providers)}): ").strip()
-                if choice.lower() == 'b':
+                if choice.lower() == "b":
                     return False  # Go back
                 index = int(choice) - 1
                 if 0 <= index < len(providers):
@@ -256,21 +288,29 @@ This wizard will guide you through setting up MiniClaw with:
         print("\n🔧 Configuring Ollama...")
         # Check if Ollama is installed and running
         try:
-            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(
+                ["ollama", "--version"], capture_output=True, text=True, timeout=5
+            )
             if result.returncode == 0:
                 print("✅ Ollama is installed")
                 self.state["ollama_installed"] = True
             else:
                 print("⚠️  Ollama not found or not running")
-                install_now = input("Would you like to install Ollama now? (y/N): ").strip().lower()
-                if install_now == 'y':
+                install_now = (
+                    input("Would you like to install Ollama now? (y/N): ")
+                    .strip()
+                    .lower()
+                )
+                if install_now == "y":
                     self._install_ollama()
                 else:
                     print("   Please install Ollama from https://ollama.com")
         except (subprocess.TimeoutExpired, FileNotFoundError):
             print("⚠️  Ollama not found")
-            install_now = input("Would you like to install Ollama now? (y/N): ").strip().lower()
-            if install_now == 'y':
+            install_now = (
+                input("Would you like to install Ollama now? (y/N): ").strip().lower()
+            )
+            if install_now == "y":
                 self._install_ollama()
             else:
                 print("   Please install Ollama from https://ollama.com")
@@ -282,7 +322,9 @@ This wizard will guide you through setting up MiniClaw with:
             print("✅ Model pulled successfully")
             self.state["ollama_model"] = default_model
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            print("⚠️  Failed to pull model. You can do this later with: ollama pull qwen3")
+            print(
+                "⚠️  Failed to pull model. You can do this later with: ollama pull qwen3"
+            )
             self.state["ollama_model"] = default_model
         self.state["provider_config"] = {
             "id": "ollama_default",
@@ -308,10 +350,16 @@ This wizard will guide you through setting up MiniClaw with:
                 subprocess.run(["brew", "install", "ollama"], check=True)
             elif system == "linux":
                 # Try curl installation
-                subprocess.run(["curl", "-fsSL", "https://ollama.com/install.sh", "|", "sh"], shell=True, check=True)
+                subprocess.run(
+                    ["curl", "-fsSL", "https://ollama.com/install.sh", "|", "sh"],
+                    shell=True,
+                    check=True,
+                )
             else:
                 print(f"Manual installation required for {system}")
-                print("Please visit https://ollama.com and follow installation instructions")
+                print(
+                    "Please visit https://ollama.com and follow installation instructions"
+                )
                 input("Press Enter after installing Ollama...")
                 return True
             print("✅ Ollama installed successfully")
@@ -321,12 +369,16 @@ This wizard will guide you through setting up MiniClaw with:
             return True
         except subprocess.CalledProcessError:
             print("❌ Failed to install Ollama automatically")
-            print("Please visit https://ollama.com and follow installation instructions")
+            print(
+                "Please visit https://ollama.com and follow installation instructions"
+            )
             input("Press Enter after installing Ollama...")
             return True
         except Exception as e:
             print(f"❌ Installation error: {e}")
-            print("Please visit https://ollama.com and follow installation instructions")
+            print(
+                "Please visit https://ollama.com and follow installation instructions"
+            )
             input("Press Enter after installing Ollama...")
             return True
 
@@ -337,7 +389,9 @@ This wizard will guide you through setting up MiniClaw with:
         if not api_key:
             print("❌ API key is required")
             return False
-        model = input("Enter model name (default: gpt-4o-mini): ").strip() or "gpt-4o-mini"
+        model = (
+            input("Enter model name (default: gpt-4o-mini): ").strip() or "gpt-4o-mini"
+        )
         self.state["provider_config"] = {
             "id": "openai_default",
             "name": "OpenAI Default",
@@ -356,7 +410,9 @@ This wizard will guide you through setting up MiniClaw with:
     def _configure_openapi_compatible_provider(self) -> bool:
         """Configure generic OpenAPI compatible provider."""
         print("\n🔑 Configuring OpenAPI Compatible Provider...")
-        base_url = input("Enter the base URL for your OpenAPI compatible provider: ").strip()
+        base_url = input(
+            "Enter the base URL for your OpenAPI compatible provider: "
+        ).strip()
         if not base_url:
             print("❌ Base URL is required")
             return False
@@ -374,8 +430,14 @@ This wizard will guide you through setting up MiniClaw with:
             print("❌ Model name is required")
             return False
 
-        provider_id = input("Enter provider ID (default: openapi_default): ").strip() or "openapi_default"
-        provider_name = input("Enter provider name (default: OpenAPI Compatible): ").strip() or "OpenAPI Compatible"
+        provider_id = (
+            input("Enter provider ID (default: openapi_default): ").strip()
+            or "openapi_default"
+        )
+        provider_name = (
+            input("Enter provider name (default: OpenAPI Compatible): ").strip()
+            or "OpenAPI Compatible"
+        )
 
         self.state["provider_config"] = {
             "id": provider_id,
@@ -400,7 +462,10 @@ This wizard will guide you through setting up MiniClaw with:
         if not api_key:
             print("❌ API key is required")
             return False
-        model = input("Enter model name (default: openai/gpt-4o-mini): ").strip() or "openai/gpt-4o-mini"
+        model = (
+            input("Enter model name (default: openai/gpt-4o-mini): ").strip()
+            or "openai/gpt-4o-mini"
+        )
         self.state["provider_config"] = {
             "id": "openrouter_default",
             "name": "OpenRouter Default",
@@ -417,89 +482,196 @@ This wizard will guide you through setting up MiniClaw with:
         return True
 
     def _keydb_installation_step(self) -> bool:
-        """Install and configure KeyDB."""
-        print("\n🔑 KeyDB Installation")
-        print("KeyDB is used for job execution in MiniClaw.")
-        # Check if KeyDB/Redis is already installed
+        """Install and configure KeyDB/Redis/Valkey."""
+        print("\n🔑 Database Installation")
+        print("A database is used for job execution in MiniClaw.")
+        print("Supported options: KeyDB (recommended), Redis, or Valkey")
+
+        # Check if any database is already installed
         has_keydb = shutil.which("keydb-server") is not None
         has_redis = shutil.which("redis-server") is not None
-        if has_keydb or has_redis:
-            db_type = "KeyDB" if has_keydb else "Redis"
-            print(f"✅ {db_type} is already installed")
-            self.state["keydb_installed"] = True
-            self.state["keydb_type"] = "keydb" if has_keydb else "redis"
+        has_valkey = shutil.which("valkey-server") is not None
+
+        if has_keydb or has_redis or has_valkey:
+            db_type = "KeyDB" if has_keydb else "Redis" if has_redis else "Valkey"
+            db_binary = (
+                "keydb-server"
+                if has_keydb
+                else "redis-server"
+                if has_redis
+                else "valkey-server"
+            )
+            db_identifier = "keydb" if has_keydb else "redis" if has_redis else "valkey"
+
+            print(f"✅ {db_type} is already installed ({db_binary})")
+            self.state["database_installed"] = True
+            self.state["database_type"] = db_identifier
+            self.state["database_binary"] = db_binary
+
             # Ask if they want to use existing installation
-            use_existing = input(f"Do you want to use the existing {db_type} installation? (Y/n): ").strip().lower()
-            if use_existing != 'n':
+            use_existing = (
+                input(
+                    f"Do you want to use the existing {db_type} installation? (Y/n): "
+                )
+                .strip()
+                .lower()
+            )
+            if use_existing != "n":
                 return True
-        # Ask if they want to install KeyDB
-        install_keydb = input("Would you like to install KeyDB now? (Y/n): ").strip().lower()
-        if install_keydb == 'n':
-            print("Skipping KeyDB installation. You can install it later manually.")
-            self.state["skip_keydb"] = True
-            return True
-        # Install KeyDB
-        print("Installing KeyDB...")
-        if not self._install_keydb():
-            print("❌ KeyDB installation failed")
-            skip = input("Continue without KeyDB? (y/N): ").strip().lower()
-            if skip != 'y':
+
+        # Ask which database they want to install
+        print("\nWhich database would you like to install?")
+        print("1. Valkey (default - Redis fork by AWS)")
+        print("2. KeyDB (enhanced Redis fork)")
+        print("3. Redis (widely supported)")
+        print("4. Skip database installation")
+
+        while True:
+            db_choice = input("Enter your choice (1-4, default: 1): ").strip()
+            if not db_choice:
+                db_choice = "1"
+
+            if db_choice == "1":
+                db_type = "Valkey"
+                db_identifier = "valkey"
+                break
+            elif db_choice == "2":
+                db_type = "KeyDB"
+                db_identifier = "keydb"
+                break
+            elif db_choice == "3":
+                db_type = "Redis"
+                db_identifier = "redis"
+                break
+            elif db_choice == "4":
+                print(
+                    "Skipping database installation. You can install it later manually."
+                )
+                self.state["skip_database"] = True
+                return True
+            else:
+                print("Invalid choice. Please enter 1, 2, 3, or 4.")
+
+        # Install selected database
+        print(f"Installing {db_type}...")
+        if not self._install_database(db_type, db_identifier):
+            print(f"❌ {db_type} installation failed")
+            skip = input("Continue without database? (y/N): ").strip().lower()
+            if skip != "y":
                 return False
-            self.state["skip_keydb"] = True
+            self.state["skip_database"] = True
             return True
-        self.state["keydb_installed"] = True
-        self.state["keydb_type"] = "keydb"
+
+        self.state["database_installed"] = True
+        self.state["database_type"] = db_identifier
         return True
 
-    def _install_keydb(self) -> bool:
-        """Install KeyDB based on OS."""
+    def _install_database(self, db_type: str, db_identifier: str) -> bool:
+        """Install database based on OS and type."""
         system = platform.system().lower()
-        print(f"Installing KeyDB for {system}...")
+        print(f"Installing {db_type} for {system}...")
+
         try:
             if system == "linux":
                 # Try to install via package manager
                 if shutil.which("apt"):
                     # Ubuntu/Debian
-                    subprocess.run([
-                        "wget", "-O", "keydb.deb",
-                        "https://download.keydb.dev/keydb-6.3.4-ubuntu20.04-amd64.deb"
-                    ], check=True)
-                    subprocess.run(["sudo", "dpkg", "-i", "keydb.deb"], check=True)
-                elif shutil.which("yum"):
-                    # CentOS/RHEL
-                    print("Please install KeyDB manually on CentOS/RHEL")
-                    print("Visit https://docs.keydb.dev/docs/install/")
-                    input("Press Enter after installing KeyDB...")
-                    return True
+                    if db_identifier == "keydb":
+                        subprocess.run(
+                            [
+                                "wget",
+                                "-O",
+                                "keydb.deb",
+                                "https://download.keydb.dev/keydb-6.3.4-ubuntu20.04-amd64.deb",
+                            ],
+                            check=True,
+                        )
+                        subprocess.run(["sudo", "dpkg", "-i", "keydb.deb"], check=True)
+                    elif db_identifier == "redis":
+                        subprocess.run(["sudo", "apt", "update"], check=True)
+                        subprocess.run(
+                            ["sudo", "apt", "install", "-y", "redis-server"], check=True
+                        )
+                    elif db_identifier == "valkey":
+                        # Valkey installation for Ubuntu/Debian
+                        subprocess.run(["sudo", "apt", "update"], check=True)
+                        subprocess.run(
+                            ["sudo", "apt", "install", "-y", "valkey-server"],
+                            check=True,
+                        )
+                elif shutil.which("yum") or shutil.which("dnf"):
+                    # CentOS/RHEL/Fedora
+                    package_manager = "dnf" if shutil.which("dnf") else "yum"
+                    if db_identifier == "keydb":
+                        print("Please install KeyDB manually on CentOS/RHEL")
+                        print("Visit https://docs.keydb.dev/docs/install/")
+                        input("Press Enter after installing KeyDB...")
+                        return True
+                    elif db_identifier == "redis":
+                        subprocess.run(
+                            ["sudo", package_manager, "install", "-y", "redis"],
+                            check=True,
+                        )
+                    elif db_identifier == "valkey":
+                        # Valkey installation for CentOS/RHEL/Fedora
+                        subprocess.run(
+                            ["sudo", package_manager, "install", "-y", "valkey"],
+                            check=True,
+                        )
                 else:
-                    print("Unsupported Linux distribution for automatic KeyDB installation")
-                    print("Visit https://docs.keydb.dev/docs/install/")
-                    input("Press Enter after installing KeyDB...")
+                    print("Unsupported Linux distribution for automatic installation")
+                    self._manual_installation_instructions(db_type, db_identifier)
+                    return True
+            elif system == "darwin":  # macOS
+                if shutil.which("brew"):
+                    if db_identifier == "keydb":
+                        subprocess.run(["brew", "tap", "eqnxo/keydb"], check=True)
+                        subprocess.run(["brew", "install", "keydb"], check=True)
+                    elif db_identifier == "redis":
+                        subprocess.run(["brew", "install", "redis"], check=True)
+                    elif db_identifier == "valkey":
+                        subprocess.run(["brew", "install", "valkey"], check=True)
+                else:
+                    print("Homebrew is required for automatic installation on macOS")
+                    self._manual_installation_instructions(db_type, db_identifier)
                     return True
             else:
                 print(f"Manual installation required for {system}")
-                print("Please visit https://docs.keydb.dev/docs/install/")
-                input("Press Enter after installing KeyDB...")
+                self._manual_installation_instructions(db_type, db_identifier)
                 return True
-            print("✅ KeyDB installed successfully")
+
+            print(f"✅ {db_type} installed successfully")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"❌ Failed to install KeyDB: {e}")
-            print("Please visit https://docs.keydb.dev/docs/install/")
-            input("Press Enter after installing KeyDB...")
-            return True
+            print(f"❌ Failed to install {db_type}: {e}")
+            self._manual_installation_instructions(db_type, db_identifier)
+            return False
         except Exception as e:
             print(f"❌ Installation error: {e}")
-            print("Please visit https://docs.keydb.dev/docs/install/")
-            input("Press Enter after installing KeyDB...")
-            return True
+            self._manual_installation_instructions(db_type, db_identifier)
+            return False
+
+    def _manual_installation_instructions(
+        self, db_type: str, db_identifier: str
+    ) -> None:
+        """Show manual installation instructions."""
+        print(f"Please install {db_type} manually:")
+        if db_identifier == "keydb":
+            print("Visit https://docs.keydb.dev/docs/install/")
+        elif db_identifier == "redis":
+            print("Visit https://redis.io/download/")
+        elif db_identifier == "valkey":
+            print("Visit https://valkey.io/docs/quickstart/")
+        input("Press Enter after installing...")
 
     def _telegram_configuration_step(self) -> bool:
         """Configure Telegram integration."""
         print("\n📱 Telegram Bot Configuration (Optional)")
         print("You can create a Telegram bot to interact with MiniClaw.")
         print("Visit https://core.telegram.org/bots#botfather to create a bot.")
-        configure = input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
+        configure = (
+            input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
+        )
         if configure not in ["y", "yes"]:
             self.state["telegram_config"] = None
             return True
@@ -534,12 +706,14 @@ This wizard will guide you through setting up MiniClaw with:
             config = self.state["provider_config"]
             print(f"   Model: {config.get('model', 'N/A')}")
             if config.get("api_key"):
-                print(f"   API Key: ***{config['api_key'][-4:] if len(config['api_key']) > 4 else '***'}")
-        print("\n🔑 KeyDB:")
-        if self.state.get("skip_keydb"):
+                print(
+                    f"   API Key: ***{config['api_key'][-4:] if len(config['api_key']) > 4 else '***'}"
+                )
+        print("\n🔑 Database:")
+        if self.state.get("skip_database"):
             print("   Status: Skipped")
-        elif self.state.get("keydb_installed"):
-            print(f"   Status: Installed ({self.state.get('keydb_type', 'keydb')})")
+        elif self.state.get("database_installed"):
+            print(f"   Status: Installed ({self.state.get('database_type', 'keydb')})")
         else:
             print("   Status: Not installed")
         print("\n📱 Telegram:")
@@ -549,7 +723,7 @@ This wizard will guide you through setting up MiniClaw with:
             print("   Status: Not configured (optional)")
         # Confirm
         confirm = input("\nProceed with installation? (Y/n): ").strip().lower()
-        return confirm != 'n'
+        return confirm != "n"
 
     def _installation_step(self) -> bool:
         """Perform the actual installation."""
@@ -563,9 +737,9 @@ This wizard will guide you through setting up MiniClaw with:
             self._create_configuration()
             # Create default files
             self._create_default_files()
-            # Start KeyDB if installed
-            if self.state.get("keydb_installed"):
-                self._start_keydb_service()
+            # Start database if installed
+            if self.state.get("database_installed"):
+                self._start_database_service()
             return True
         except Exception as e:
             print(f"❌ Installation failed: {e}")
@@ -581,7 +755,7 @@ This wizard will guide you through setting up MiniClaw with:
             self.workspace / "skills",
             self.workspace / "plugins",
             self.workspace / "jobs",
-            self.workspace / "generated_scripts"
+            self.workspace / "generated_scripts",
         ]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
@@ -592,11 +766,11 @@ This wizard will guide you through setting up MiniClaw with:
         print("📦 Installing dependencies...")
         # Determine package manager
         package_manager = "uv" if self.state.get("has_uv") else "pip"
-        # Install KeyDB Python client if KeyDB is being used
-        if self.state.get("keydb_installed"):
+        # Install Redis Python client if database is being used
+        if self.state.get("database_installed"):
             try:
                 subprocess.run([package_manager, "install", "redis"], check=True)
-                print("   ✅ Installed Redis client (for KeyDB compatibility)")
+                print("   ✅ Installed Redis client (for database compatibility)")
             except subprocess.CalledProcessError:
                 print("   ⚠️  Failed to install Redis client")
 
@@ -615,7 +789,8 @@ This wizard will guide you through setting up MiniClaw with:
                 "default_provider_id": provider_config.get("id", "ollama_default"),
                 "items": [provider_config] if provider_config else [],
             },
-            "telegram": telegram_config or {
+            "telegram": telegram_config
+            or {
                 "enabled": False,
                 "bot_token": "",
                 "allowed_chat_ids": [],
@@ -689,106 +864,117 @@ This wizard will guide you through setting up MiniClaw with:
             },
         }
         # Write config file
-        self.config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        self.config_path.write_text(
+            json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         print("   ✅ Configuration created")
 
     def _create_default_files(self) -> None:
         """Create default memory and skill files."""
         print("📄 Creating default files...")
-        # Memory files
-        memory_dir = self.workspace / "memory"
-        memory_files = {
-            "soul.md": (
-                "# Soul\n\n"
-                "Core stance:\n"
-                "- Be clear, concrete, and practical.\n"
-                "- Prefer explicit tradeoffs over vague advice.\n"
-                "- Keep actions observable.\n"
-            ),
-            "user.md": (
-                "# User Profile\n\n"
-                "- Preferred style: direct, low fluff.\n"
-                "- Update this file when stable user preferences become clear.\n"
-            ),
-            "project.md": (
-                "# Project Context\n\n"
-                "- Record durable architecture decisions, constraints, and known risks.\n"
-            ),
-            "journal.md": (
-                "# Journal\n\n"
-                "Append short timestamped summaries of important interactions and outcomes.\n"
-            ),
-        }
-        for filename, content in memory_files.items():
-            filepath = memory_dir / filename
-            if not filepath.exists():
-                filepath.write_text(content, encoding="utf-8")
-                print(f"   ✅ Created {filename}")
-        # Skill files
-        skills_dir = self.workspace / "skills"
-        skill_files = {
-            "issue_triage.md": (
-                "# Issue Triage\n\n"
-                "keywords: bug,incident,error,regression,fix,root cause\n\n"
-                "When queries involve production issues, prioritize:\n"
-                "1. observed symptoms,\n"
-                "2. likely root causes,\n"
-                "3. next diagnostic steps,\n"
-                "4. rollback/mitigation options.\n"
-            ),
-            "research_compare.md": (
-                "# Research Compare\n\n"
-                "keywords: compare,comparison,tradeoff,options,evaluate\n\n"
-                "For comparison requests, provide concise option tables with clear pros/cons and decision criteria.\n"
-            ),
-            "ship_plan.md": (
-                "# Ship Plan\n\n"
-                "keywords: plan,roadmap,milestone,deliver,ship,launch\n\n"
-                "For execution planning, return phased steps with dependencies, risks, and success checks.\n"
-            ),
-        }
-        for filename, content in skill_files.items():
-            filepath = skills_dir / filename
-            if not filepath.exists():
-                filepath.write_text(content, encoding="utf-8")
-                print(f"   ✅ Created {filename}")
 
-    def _start_keydb_service(self) -> None:
-        """Start KeyDB service."""
-        print("🔑 Starting KeyDB service...")
-        try:
-            # Try to start KeyDB
-            if self.state.get("keydb_type") == "keydb":
-                subprocess.Popen(["keydb-server", "--daemonize", "yes"])
+        # Import constants to access template directories
+        from ..core.constants import (
+            MEMORY_TEMPLATE_DIR,
+            SKILLS_TEMPLATE_DIR,
+            PLUGINS_TEMPLATE_DIR,
+        )
+
+        # Copy memory files from templates
+        memory_dir = self.workspace / "memory"
+        memory_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+        if MEMORY_TEMPLATE_DIR.exists():
+            for template_file in MEMORY_TEMPLATE_DIR.iterdir():
+                if template_file.is_file():
+                    dest_file = memory_dir / template_file.name
+                    if not dest_file.exists():
+                        dest_file.write_text(
+                            template_file.read_text(encoding="utf-8"), encoding="utf-8"
+                        )
+                        print(f"   ✅ Created {template_file.name}")
+
+        # Copy skill files from templates
+        skills_dir = self.workspace / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+        if SKILLS_TEMPLATE_DIR.exists():
+            for template_file in SKILLS_TEMPLATE_DIR.iterdir():
+                if template_file.is_file():
+                    dest_file = skills_dir / template_file.name
+                    if not dest_file.exists():
+                        dest_file.write_text(
+                            template_file.read_text(encoding="utf-8"), encoding="utf-8"
+                        )
+                        print(f"   ✅ Created {template_file.name}")
+
+        # Copy plugin files from templates (optional)
+        plugins_dir = self.workspace / "plugins"
+        plugins_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+        if PLUGINS_TEMPLATE_DIR.exists():
+            for template_file in PLUGINS_TEMPLATE_DIR.iterdir():
+                if template_file.is_file():
+                    dest_file = plugins_dir / template_file.name
+                    if not dest_file.exists():
+                        dest_file.write_text(
+                            template_file.read_text(encoding="utf-8"), encoding="utf-8"
+                        )
+                        print(f"   ✅ Created {template_file.name}")
+
+    def _start_database_service(self) -> None:
+        """Start database service."""
+        db_type = self.state.get("database_type", "keydb")
+        db_binary = self.state.get("database_binary")
+
+        if not db_binary:
+            # Fallback to default binary names
+            if db_type == "keydb":
+                db_binary = "keydb-server"
+            elif db_type == "redis":
+                db_binary = "redis-server"
+            elif db_type == "valkey":
+                db_binary = "valkey-server"
             else:
-                subprocess.Popen(["redis-server", "--daemonize", "yes"])
+                db_binary = "redis-server"  # Default fallback
+
+        print(f"🔑 Starting {db_type.capitalize()} service...")
+        try:
+            # Try to start the database service
+            subprocess.Popen([db_binary, "--daemonize", "yes"])
             time.sleep(2)  # Give it time to start
-            print("   ✅ KeyDB service started")
+            print(f"   ✅ {db_type.capitalize()} service started")
         except Exception as e:
-            print(f"   ⚠️  Failed to start KeyDB service: {e}")
+            print(f"   ⚠️  Failed to start {db_type.capitalize()} service: {e}")
             print("   You may need to start it manually")
 
     def _show_completion_message(self) -> None:
         """Show completion message with next steps."""
         print(f"\n📁 Workspace: {self.workspace}")
         print(f"⚙️  Config: {self.config_path}")
-        if self.state.get("keydb_installed"):
-            print("🔑 KeyDB: Installed and running")
+        if self.state.get("database_installed"):
+            db_type = self.state.get("database_type", "keydb").capitalize()
+            print(f"🔑 Database: {db_type} installed and running")
         print("\n🚀 Next steps:")
         print("   1. Start the server: miniclaw gateway")
         print("   2. Open http://127.0.0.1:8787 in your browser")
-        print("   3. Or chat via CLI: miniclaw agent -m \"Hello!\"")
+        print('   3. Or chat via CLI: miniclaw agent -m "Hello!"')
 
         # Offer to set up service (skip during testing)
         import os
+
         if not os.environ.get("PYTEST_CURRENT_TEST"):
             print("\n💡 Optional: Set up MiniClaw as a background service")
-            print("   This will make MiniClaw start automatically when your computer boots.")
+            print(
+                "   This will make MiniClaw start automatically when your computer boots."
+            )
             try:
-                configure_service = input("Do you want to set up the service now? (y/N): ").strip().lower()
+                configure_service = (
+                    input("Do you want to set up the service now? (y/N): ")
+                    .strip()
+                    .lower()
+                )
                 if configure_service in ["y", "yes"]:
                     try:
                         from .init_service import install_service
+
                         install_service()
                     except ImportError:
                         print("Service setup module not found.")
@@ -797,8 +983,10 @@ This wizard will guide you through setting up MiniClaw with:
             except EOFError:
                 # Handle case where input is not available (e.g., in CI)
                 print("\nSkipping service setup (no input available)")
-        if self.state.get("keydb_installed"):
-            print("   4. Start Celery worker: celery -A miniclaw.celery_worker worker --loglevel=info")
+        if self.state.get("database_installed"):
+            print(
+                "   4. Start Celery worker: celery -A miniclaw.celery_worker worker --loglevel=info"
+            )
 
 
 def run_enhanced_setup_wizard() -> int:

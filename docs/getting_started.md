@@ -148,7 +148,7 @@ MiniClaw now includes several enhanced features:
 The enhanced setup wizard provides step-by-step guidance with:
 - Colorful, styled output
 - Navigation between setup steps
-- KeyDB automatic installation
+- Valkey automatic installation
 - Configuration review before applying
 
 ### Consistent CLI Styling
