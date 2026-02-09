@@ -237,6 +237,13 @@ This wizard will guide you through setting up MiniClaw with:
                 "description": "Access to many models through one API (requires API key)",
                 "type": "openrouter",
                 "needs_install": False
+            },
+            {
+                "id": "openapi_compatible",
+                "name": "OpenAPI Compatible",
+                "description": "Generic OpenAPI compatible provider (requires base URL and API key)",
+                "type": "openai_compatible",
+                "needs_install": False
             }
         ]
 
@@ -267,6 +274,8 @@ This wizard will guide you through setting up MiniClaw with:
             return self._configure_openai_provider()
         elif selected["id"] == "openrouter":
             return self._configure_openrouter_provider()
+        elif selected["id"] == "openapi_compatible":
+            return self._configure_openapi_compatible_provider()
 
         return False
 
@@ -383,6 +392,48 @@ This wizard will guide you through setting up MiniClaw with:
 
         return True
 
+    def _configure_openapi_compatible_provider(self) -> bool:
+        """Configure generic OpenAPI compatible provider."""
+        print("\n🔑 Configuring OpenAPI Compatible Provider...")
+        
+        base_url = input("Enter the base URL for your OpenAPI compatible provider: ").strip()
+        if not base_url:
+            print("❌ Base URL is required")
+            return False
+            
+        # Ensure the URL ends with /v1 for OpenAI compatible APIs
+        if not base_url.endswith("/v1"):
+            if base_url.endswith("/"):
+                base_url += "v1"
+            else:
+                base_url += "/v1"
+        
+        api_key = input("Enter your API key (optional, press Enter to skip): ").strip()
+        
+        model = input("Enter model name (required): ").strip()
+        if not model:
+            print("❌ Model name is required")
+            return False
+        
+        provider_id = input("Enter provider ID (default: openapi_default): ").strip() or "openapi_default"
+        provider_name = input("Enter provider name (default: OpenAPI Compatible): ").strip() or "OpenAPI Compatible"
+        
+        self.state["provider_config"] = {
+            "id": provider_id,
+            "name": provider_name,
+            "type": "openai_compatible",
+            "enabled": True,
+            "base_url": base_url,
+            "api_key": api_key,
+            "model": model,
+            "temperature": 0.2,
+            "timeout_seconds": 300,
+            "verify_tls": True,
+            "system_prompt_override": "",
+        }
+        
+        return True
+    
     def _configure_openrouter_provider(self) -> bool:
         """Configure OpenRouter provider."""
         print("\n🔑 Configuring OpenRouter...")
