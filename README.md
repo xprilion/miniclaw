@@ -44,12 +44,15 @@ uv tool install miniclaw
 miniclaw setup
 ```
 
+The installation process includes optional KeyDB installation for job execution support.
+
 ## Quick Start
 
 1. Initialize (creates `~/.miniclaw` with config, memory, skills, plugins)
    ```bash
    miniclaw install
    ```
+   Or use the simplified command: `miniclaw install`
 
 2. Configure by editing `~/.miniclaw/miniclaw_config.json`
 
@@ -102,13 +105,13 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 - `config raw-get` - Get raw config text
 - `config raw-set [--file FILE] [--stdin]` - PUT raw config text from file or stdin
 
-### AI Providers
+### AI Providers (miniclaw providers)
 - `providers list` - List configured model providers
 - `providers default --id ID` - Set default provider
 - `providers delete --id ID` - Delete provider
 - `providers save --id ID --name NAME --type TYPE --base-url URL --model MODEL [--temperature TEMP] [--timeout TIMEOUT] [--api-key KEY] [--prompt-override PROMPT] [--disable] [--no-verify-tls]` - Create or update provider
 
-### Memory Management
+### Memory Management (miniclaw memory)
 - `memory list` - List memory files and content
 - `memory get --name NAME` - Read one memory file
 - `memory save --name NAME [--file FILE] [--stdin]` - Save a memory file
@@ -118,7 +121,7 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 - `skill-save --id ID [--file FILE] [--stdin]` - Save markdown skill file
 - `skill-delete --id ID` - Delete markdown skill file
 
-### Jobs
+### Jobs (miniclaw jobs)
 - `jobs status` - Get jobs status
 - `jobs save --id ID --name NAME --prompt PROMPT [--interval INTERVAL] [--disabled] [--telegram-chat-id ID]` - Create or update job
 - `jobs delete --id ID` - Delete job
@@ -150,10 +153,12 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 ## Documentation
 
 - [Getting Started Guide](docs/getting_started.md)
+- [Setup Guide](docs/setup.md)
 - [Architecture Overview](docs/architecture.md)
 - [Production Deployment](docs/deployment.md)
 - [API Documentation](docs/api.md)
 - [CLI Documentation](docs/cli.md)
+- [CLI Styling Guide](docs/cli_styling.md)
 
 ## License
 
