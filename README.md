@@ -82,6 +82,10 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 - `install` - Create workspace and guide through prerequisites with interactive setup
 - `uninstall [--yes]` - Remove workspace directory
 - `gateway [--host HOST] [--port PORT]` - Start the server (web + Telegram)
+- `gateway start` - Start MiniClaw as a background service
+- `gateway stop` - Stop the MiniClaw service
+- `gateway restart` - Restart the MiniClaw service
+- `gateway status` - Check the status of the MiniClaw service
 - `doctor` - Check Python, workspace, config, Ollama, server
 - `status` - Show system status (alias for doctor)
 - `update` - Update dependencies and existing installation
@@ -129,7 +133,13 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 - `telegram pair-reject --request-id REQUEST_ID` - Reject pairing request
 - `telegram unbind` - Remove currently bound Telegram chat
 
-### System Information
+### Service Management
+- `service install` - Install MiniClaw as a system service
+- `service uninstall` - Uninstall the MiniClaw service
+- `service start` - Start the MiniClaw service
+- `service stop` - Stop the MiniClaw service
+- `service restart` - Restart the MiniClaw service
+- `service status` - Check the status of the MiniClaw service
 - `models [--provider PROVIDER]` - List provider models
 - `usage [--limit LIMIT]` - Get token usage summary
 - `runtime` - Get runtime snapshot
