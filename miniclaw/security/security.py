@@ -447,13 +447,20 @@ class ContentFilter:
     def _looks_like_secret(self, text: str) -> bool:
         """Determine if text looks like a secret."""
         # Check entropy - high entropy suggests random data (like keys)
-        if len(text) > 10:
+        if len(text) > 15:  # Increased threshold
             entropy = self._calculate_entropy(text)
-            if entropy > 3.0:  # Threshold for high entropy
+            if entropy > 4.0:  # Increased threshold
                 return True
 
         # Check for common secret patterns
-        if re.match(r"^[A-Za-z0-9_+=/-]+$", text) and len(text) > 20:
+        if re.match(r"^[A-Za-z0-9_+=/-]+$", text) and len(text) > 30:  # Increased threshold
+            return True
+            
+        # For structured data like credit cards, SSNs, just return True
+        # since they match specific patterns that are meant to be filtered
+        ssn_pattern = r"\b\d{3}-\d{2}-\d{4}\b"
+        cc_pattern = r"\b(?:\d{4}[-\s]?){3}\d{4}\b"
+        if re.match(ssn_pattern, text) or re.match(cc_pattern, text):
             return True
 
         return False

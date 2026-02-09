@@ -136,13 +136,22 @@ class TestInitService(unittest.TestCase):
         systemd_dir = Path(self.temp_dir) / "etc" / "systemd" / "system"
         systemd_dir.mkdir(parents=True, exist_ok=True)
 
+        # Patch os.path.exists to make the function think /etc/systemd/system exists
+        original_exists = os.path.exists
+        
+        def mock_exists(path):
+            if path == "/etc/systemd/system":
+                return True
+            return original_exists(path)
+
         try:
             with patch("builtins.print") as mock_print:
                 with patch.dict(
                     os.environ, {"PATH": "/usr/local/bin:/usr/bin:/bin"}, clear=False
                 ):
                     with patch("os.getcwd", return_value=self.temp_dir):
-                        result = init_service.install_linux_service()
+                        with patch("os.path.exists", side_effect=mock_exists):
+                            result = init_service.install_linux_service()
 
             self.assertTrue(result)
             mock_print.assert_any_call(
@@ -209,8 +218,10 @@ class TestInitService(unittest.TestCase):
                     result = init_service.install_windows_service()
 
             self.assertTrue(result)
+            # Handle path resolution differences (macOS /private issue)
+            expected_path = Path(self.temp_dir) / "install_miniclaw_service.ps1"
             mock_print.assert_any_call(
-                f"Windows service installation script created: {self.temp_dir}/install_miniclaw_service.ps1"
+                f"Windows service installation script created: {expected_path.resolve()}"
             )
 
             # Verify PowerShell script was created

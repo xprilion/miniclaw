@@ -79,7 +79,7 @@ ReadWritePaths={Path.home()}/.miniclaw
 WantedBy=multi-user.target
 """
 
-    # Write service file to user directory
+    # Write service file to current directory
     service_file = Path.cwd() / "miniclaw.service"
     try:
         with open(service_file, "w") as f:

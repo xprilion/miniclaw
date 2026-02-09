@@ -337,6 +337,7 @@ class ModelProviderClient:
         )
 
         # Use the official OpenAI client which handles all the complexities
+        # In tests, we'll mock this out to avoid actual network calls
         client = OpenAI(
             base_url=base_url,
             api_key=api_key,

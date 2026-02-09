@@ -28,10 +28,10 @@ class TestServiceInstaller(unittest.TestCase):
 
     def test_detect_os(self):
         """Test detect_os function."""
-        # Since we're running on Linux, this should return 'linux'
         result = service_installer.detect_os()
         self.assertIsInstance(result, str)
-        self.assertEqual(result, "linux")  # Assuming tests run on Linux
+        # The test might run on different OSes, so just check it returns a reasonable value
+        self.assertIn(result, ["linux", "darwin", "windows"])
 
     @patch("shutil.which")
     def test_install_linux_service_systemctl_not_available(self, mock_which):
