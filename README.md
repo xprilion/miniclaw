@@ -6,6 +6,8 @@ Configuration and data are stored in `~/.miniclaw`, while this repository contai
 
 [![Build](https://github.com/xprilion/miniclaw/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/xprilion/miniclaw/actions/workflows/ci.yml)
 
+[![Code Quality](https://github.com/xprilion/miniclaw/actions/workflows/qodana_code_quality.yml/badge.svg)](https://github.com/xprilion/miniclaw/actions/workflows/qodana_code_quality.yml)
+
 ## Key Features
 
 ### Security
