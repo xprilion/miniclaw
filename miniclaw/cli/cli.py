@@ -109,7 +109,7 @@ def manage_linux_service(command: str) -> int:
         if command == "start":
             # Check if service exists
             result = subprocess.run(["systemctl", "is-active", service_name],
-                                  capture_output=True, text=True)
+                                    capture_output=True, text=True)
             if result.returncode == 0 and result.stdout.strip() == "active":
                 print(style.info("Service is already running"))
                 return 0
@@ -127,7 +127,7 @@ def manage_linux_service(command: str) -> int:
 
         elif command == "status":
             result = subprocess.run(["systemctl", "is-active", service_name],
-                                  capture_output=True, text=True)
+                                    capture_output=True, text=True)
             if result.returncode == 0 and result.stdout.strip() == "active":
                 print(style.success("Service is running"))
             else:
@@ -155,7 +155,7 @@ def manage_macos_service(command: str) -> int:
 
             # Check if service is already loaded
             result = subprocess.run(["launchctl", "list", plist_label],
-                                  capture_output=True, text=True)
+                                    capture_output=True, text=True)
             if result.returncode == 0 and plist_label in result.stdout:
                 print(style.info("Service is already loaded"))
                 # Check if it's actually running
@@ -170,13 +170,13 @@ def manage_macos_service(command: str) -> int:
 
         elif command == "restart":
             subprocess.run(["launchctl", "unload", str(plist_path)],
-                          capture_output=True, check=False)
+                           capture_output=True, check=False)
             subprocess.run(["launchctl", "load", str(plist_path)], check=True)
             print(style.success("Service restarted successfully"))
 
         elif command == "status":
             result = subprocess.run(["launchctl", "list", plist_label],
-                                  capture_output=True, text=True)
+                                    capture_output=True, text=True)
             if result.returncode == 0 and plist_label in result.stdout:
                 print(style.success("Service is loaded"))
             else:
@@ -199,7 +199,7 @@ def manage_windows_service(command: str) -> int:
         if command == "start":
             # Check if service exists
             result = subprocess.run(["sc", "query", service_name],
-                                  capture_output=True, text=True)
+                                    capture_output=True, text=True)
             if "does not exist" in result.stdout:
                 print(style.error("Service not installed. Run 'miniclaw service install' first."))
                 return 1
@@ -213,7 +213,7 @@ def manage_windows_service(command: str) -> int:
 
         elif command == "restart":
             subprocess.run(["sc", "stop", service_name],
-                          capture_output=True, check=False)
+                           capture_output=True, check=False)
             # Wait a bit for service to stop
             import time
             time.sleep(2)
@@ -222,7 +222,7 @@ def manage_windows_service(command: str) -> int:
 
         elif command == "status":
             result = subprocess.run(["sc", "query", service_name],
-                                  capture_output=True, text=True)
+                                    capture_output=True, text=True)
             if "RUNNING" in result.stdout:
                 print(style.success("Service is running"))
             elif "STOPPED" in result.stdout:
@@ -316,11 +316,11 @@ def run_uninstall_service(args: argparse.Namespace) -> int:
         if os_type == "linux":
             # Stop and disable service
             subprocess.run(["sudo", "systemctl", "stop", "miniclaw"],
-                          capture_output=True, check=False)
+                           capture_output=True, check=False)
             subprocess.run(["sudo", "systemctl", "disable", "miniclaw"],
-                          capture_output=True, check=False)
+                           capture_output=True, check=False)
             subprocess.run(["sudo", "rm", "-f", "/etc/systemd/system/miniclaw.service"],
-                          check=False)
+                           check=False)
             subprocess.run(["sudo", "systemctl", "daemon-reload"], check=False)
             print(style.success("Linux service uninstalled"))
 
@@ -328,7 +328,7 @@ def run_uninstall_service(args: argparse.Namespace) -> int:
             plist_path = Path.home() / "Library" / "LaunchAgents" / "com.miniclaw.agent.plist"
             if plist_path.exists():
                 subprocess.run(["launchctl", "unload", str(plist_path)],
-                              capture_output=True, check=False)
+                               capture_output=True, check=False)
                 plist_path.unlink()
                 print(style.success("macOS service uninstalled"))
             else:
@@ -337,9 +337,9 @@ def run_uninstall_service(args: argparse.Namespace) -> int:
         elif os_type == "windows":
             # Stop and delete service
             subprocess.run(["sc", "stop", "MiniClaw"],
-                          capture_output=True, check=False)
+                           capture_output=True, check=False)
             subprocess.run(["sc", "delete", "MiniClaw"],
-                          capture_output=True, check=False)
+                           capture_output=True, check=False)
             print(style.success("Windows service uninstalled"))
 
         else:
@@ -665,9 +665,11 @@ def run_cli() -> int:
     providers_save.add_argument("--base-url", required=True, help="Provider base URL")
     providers_save.add_argument("--model", required=True, help="Model name")
     providers_save.add_argument("--temperature", type=float, default=0.2)
-    providers_save.add_argument("--timeout", type=int, default=300, help="Request timeout in seconds (default: 300)")
+    providers_save.add_argument("--timeout", type=int, default=300,
+                                help="Request timeout in seconds (default: 300)")
     providers_save.add_argument("--api-key", default="", help="Optional API key")
-    providers_save.add_argument("--prompt-override", default="", help="Optional provider system prompt override")
+    providers_save.add_argument("--prompt-override", default="",
+                                help="Optional provider system prompt override")
     providers_save.add_argument("--disable", action="store_true", help="Disable provider")
     providers_save.add_argument("--no-verify-tls", action="store_true", help="Disable TLS verification")
 
@@ -682,7 +684,8 @@ def run_cli() -> int:
     tg_sub.add_parser("pairings", help="Get pairing status and requests")
 
     tg_pair_start = tg_sub.add_parser("pair-start", help="Create Telegram pairing code")
-    tg_pair_start.add_argument("--ttl", type=int, default=None, help="Code TTL seconds")
+    tg_pair_start.add_argument("--ttl", type=int, default=None,
+                               help="Code TTL seconds")
 
     tg_pair_confirm = tg_sub.add_parser("pair-confirm", help="Confirm pairing request")
     tg_pair_confirm.add_argument("--request-id", required=True)
@@ -700,7 +703,8 @@ def run_cli() -> int:
     jobs_save.add_argument("--prompt", required=True, help="Job prompt")
     jobs_save.add_argument("--interval", type=int, default=300, help="Interval seconds")
     jobs_save.add_argument("--disabled", action="store_true", help="Save as disabled")
-    jobs_save.add_argument("--telegram-chat-id", default="", help="Optional Telegram chat id for job output")
+    jobs_save.add_argument("--telegram-chat-id", default="",
+                           help="Optional Telegram chat id for job output")
     jobs_delete = jobs_sub.add_parser("delete", help="Delete job")
     jobs_delete.add_argument("--id", required=True, help="Job id")
     jobs_run = jobs_sub.add_parser("run", help="Trigger job now")
@@ -842,7 +846,8 @@ def run_cli() -> int:
         if args.command == "models":
             provider_query = args.provider if args.provider else ""
             provider_q = f"?provider_id={urllib.parse.quote(provider_query)}" if provider_query else ""
-            result = request_json(base_url, f"/api/models{provider_q}")
+            url = f"/api/models{provider_q}"
+            result = request_json(base_url, url)
             if result.get("ok"):
                 provider_info = result.get("provider", {})
                 models = result.get("models", [])
@@ -1028,10 +1033,12 @@ def run_cli() -> int:
                 for item in history_items:
                     timestamp = item.get("timestamp", "")[:19]  # Truncate to readable format
                     role = item.get("role", "unknown")
-                    content = item.get("content", "")[:100] + "..." if len(item.get("content", "")) > 100 else item.get("content", "")
+                    content = item.get("content", "")[:100] + "..." \
+                        if len(item.get("content", "")) > 100 else item.get("content", "")
 
                     role_style = style.success if role == "assistant" else style.info
-                    print(f"\n{role_style(role.upper())} [{timestamp}]")
+                    role_text = role_style(role.upper())
+                    print(f"\n{role_text} [{timestamp}]")
                     print(f"  {content}")
             else:
                 print(style.error(f"Failed to fetch history: {result.get('error', 'Unknown error')}"))
@@ -1113,21 +1120,21 @@ def run_cli() -> int:
 
             if args.memory_command == "get":
                 path = f"/api/memory?name={urllib.parse.quote(args.name)}"
-                print_json(request_json(base_url, path))
+                result = request_json(base_url, path)
+                print_json(result)
                 return 0
 
             if args.memory_command == "save":
                 if bool(args.file) == bool(args.stdin):
                     raise RuntimeError("Use exactly one of --file or --stdin for memory save")
                 content = read_text_file(args.file) if args.file else sys.stdin.read()
-                print_json(
-                    request_json(
-                        base_url,
-                        "/api/memory/save",
-                        method="POST",
-                        payload={"name": args.name, "content": content},
-                    )
+                result = request_json(
+                    base_url,
+                    "/api/memory/save",
+                    method="POST",
+                    payload={"name": args.name, "content": content},
                 )
+                print_json(result)
                 return 0
 
         if args.command == "config":
@@ -1135,7 +1142,8 @@ def run_cli() -> int:
                 result = request_json(base_url, "/api/config")
                 if result.get("ok"):
                     print(style.section("Current Configuration"))
-                    print_json(result.get("config", {}))
+                    config_data = result.get("config", {})
+                    print_json(config_data)
                 else:
                     print(style.error(f"Failed to get config: {result.get('error', 'Unknown error')}"))
                 return 0
