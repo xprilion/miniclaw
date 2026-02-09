@@ -1,4 +1,5 @@
 """Application state: config, skills, agent, telegram, jobs."""
+
 from __future__ import annotations
 
 import copy
@@ -9,12 +10,12 @@ from typing import Any, Dict, List
 from ..core.constants import (
     CONFIG_PATH,
     DEFAULT_JOBS,
-    DEFAULT_SKILL_TEMPLATES,
     ENV_KEYS,
     JOBS_DIR,
     MEMORY_DIR,
     PLUGINS_DIR,
     SKILLS_DIR,
+    SKILLS_TEMPLATE_DIR,
     WEB_DIR,
     WORKSPACE_DIR,
 )
@@ -48,7 +49,9 @@ class AppState:
         self.security = create_security_managers(self.config_store, self.event_log)
 
         # Initialize enhanced plugin manager
-        self.enhanced_plugins = create_plugin_manager(PLUGINS_DIR, self.config_store, self.event_log)
+        self.enhanced_plugins = create_plugin_manager(
+            PLUGINS_DIR, self.config_store, self.event_log
+        )
 
         self.skills = SkillRegistry(SKILLS_DIR, self.event_log)
         self._seed_defaults_once()
@@ -59,7 +62,9 @@ class AppState:
         self.usage = UsageTracker()
         self.memory = MemoryStore(MEMORY_DIR, self.config_store, self.event_log)
         self.mcp = MCPServerManager(self.config_store, self.event_log)
-        self.tools = ToolRunner(self.config_store, self.event_log, self.mcp, self.security)
+        self.tools = ToolRunner(
+            self.config_store, self.event_log, self.mcp, self.security
+        )
         self.model_client = ModelProviderClient(self.event_log)
         self.agent = MiniClawAgent(
             config_store=self.config_store,
@@ -93,7 +98,6 @@ class AppState:
             bool(loaded["telegram"].get("enabled")),
         )
         LOGGER.info(
-
             "App initialized skills=%d plugins=%d telegram_enabled=%s",
             len(self.skills.list()),
             len(self.plugins.list()),
@@ -124,7 +128,9 @@ class AppState:
                 continue
         raw["scheduler"] = raw.get("scheduler") or {}
         raw["scheduler"]["jobs"] = []
-        path.write_text(json.dumps(raw, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(raw, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         self.config_store._config = self.config_store._normalize(raw)
         self.event_log.add(
             "scheduler.migrated",
@@ -179,17 +185,34 @@ class AppState:
     def _seed_defaults_once(self) -> None:
         config = self.config_store.get()
 
-        seeded_skills = bool(config.get("agent", {}).get("seeded_default_skills", False))
+        seeded_skills = bool(
+            config.get("agent", {}).get("seeded_default_skills", False)
+        )
         if not seeded_skills:
-            created = self.skills.seed_defaults(DEFAULT_SKILL_TEMPLATES)
+            # Create a templates dictionary from files in the skills template directory
+            skill_templates = {}
+            if SKILLS_TEMPLATE_DIR.exists():
+                for template_file in SKILLS_TEMPLATE_DIR.iterdir():
+                    if template_file.is_file() and template_file.suffix == ".md":
+                        skill_templates[template_file.stem] = template_file.read_text(
+                            encoding="utf-8"
+                        )
+
+            created = self.skills.seed_defaults(skill_templates)
             removed_transparency = self.skills.delete_if_exists("transparency")
             enabled_skills = [
-                str(item).strip() for item in config["agent"].get("enabled_skills") or [] if str(item).strip()
+                str(item).strip()
+                for item in config["agent"].get("enabled_skills") or []
+                if str(item).strip()
             ]
             available_ids = {item["id"] for item in self.skills.list()}
             enabled_present = [item for item in enabled_skills if item in available_ids]
             if not enabled_present:
-                enabled_present = [skill_id for skill_id in DEFAULT_SKILL_TEMPLATES.keys() if skill_id in available_ids]
+                enabled_present = [
+                    skill_id
+                    for skill_id in skill_templates.keys()
+                    if skill_id in available_ids
+                ]
             config["agent"]["enabled_skills"] = enabled_present
             config["agent"]["seeded_default_skills"] = True
             saved = self.config_store.save(config)
@@ -204,7 +227,9 @@ class AppState:
             )
 
         config = self.config_store.get()
-        seeded_jobs = bool(config.get("scheduler", {}).get("seeded_default_jobs", False))
+        seeded_jobs = bool(
+            config.get("scheduler", {}).get("seeded_default_jobs", False)
+        )
         if not seeded_jobs:
             existing = self.job_store.list()
             if not existing:
@@ -242,11 +267,16 @@ class AppState:
                 "whatsapp_restarted": whatsapp_restarted,
             },
         )
-        LOGGER.info("Runtime reloaded from config update telegram_restarted=%s whatsapp_restarted=%s",
-                    telegram_restarted, whatsapp_restarted)
+        LOGGER.info(
+            "Runtime reloaded from config update telegram_restarted=%s whatsapp_restarted=%s",
+            telegram_restarted,
+            whatsapp_restarted,
+        )
         return updated
 
-    def update_skill_settings(self, enabled_skills: List[str], min_score: int) -> Dict[str, Any]:
+    def update_skill_settings(
+        self, enabled_skills: List[str], min_score: int
+    ) -> Dict[str, Any]:
         config = self.config_store.get()
         filtered_skills: List[str] = []
         for item in enabled_skills:
@@ -277,7 +307,9 @@ class AppState:
         raw_id = str(payload.get("id") or "").strip().lower()
         job_id = "".join(ch for ch in raw_id if ch.isalnum() or ch in {"_", "-"})
         if not job_id:
-            raise ValueError("Scheduler job id is required and must be lowercase letters, numbers, _ or -")
+            raise ValueError(
+                "Scheduler job id is required and must be lowercase letters, numbers, _ or -"
+            )
         prompt = str(payload.get("prompt") or "").strip()
         if not prompt:
             raise ValueError("Scheduler job prompt is required")
@@ -327,7 +359,11 @@ class AppState:
         whatsapp = channels.get("whatsapp_wacli") or {}
         email = channels.get("email") or {}
         providers_cfg = config.get("providers") or {}
-        providers = [item for item in (providers_cfg.get("items") or []) if isinstance(item, dict)]
+        providers = [
+            item
+            for item in (providers_cfg.get("items") or [])
+            if isinstance(item, dict)
+        ]
         targets = ["https://api.telegram.org"]
         for provider in providers:
             base_url = str(provider.get("base_url") or "").strip()
@@ -349,7 +385,9 @@ class AppState:
             "scripts_dir": str(self.script_generator.scripts_dir),
             "generated_scripts": self.script_generator.list_scripts(),
             "network_targets": targets,
-            "environment": {key: os.getenv(key) for key in ENV_KEYS if os.getenv(key) is not None},
+            "environment": {
+                key: os.getenv(key) for key in ENV_KEYS if os.getenv(key) is not None
+            },
             "loaded_skills": [
                 {
                     "id": skill["id"],

@@ -1,4 +1,5 @@
 """Setup wizard for MiniClaw: guided installation and configuration for non-developers."""
+
 from __future__ import annotations
 
 import json
@@ -50,18 +51,26 @@ class SetupWizard:
             print("\n🚀 Next steps:")
             print("   1. Start the server: miniclaw gateway")
             print("   2. Open http://127.0.0.1:8787 in your browser")
-            print("   3. Or chat via CLI: miniclaw agent -m \"Hello!\"")
+            print('   3. Or chat via CLI: miniclaw agent -m "Hello!"')
 
             # Offer to set up service (skip during testing)
             import os
+
             if not os.environ.get("PYTEST_CURRENT_TEST"):
                 print("\n💡 Optional: Set up MiniClaw as a background service")
-                print("   This will make MiniClaw start automatically when your computer boots.")
+                print(
+                    "   This will make MiniClaw start automatically when your computer boots."
+                )
                 try:
-                    configure_service = input("Do you want to set up the service now? (y/N): ").strip().lower()
+                    configure_service = (
+                        input("Do you want to set up the service now? (y/N): ")
+                        .strip()
+                        .lower()
+                    )
                     if configure_service in ["y", "yes"]:
                         try:
                             from .init_service import install_service
+
                             install_service()
                         except ImportError:
                             print("Service setup module not found.")
@@ -86,7 +95,9 @@ class SetupWizard:
         if sys.version_info < (3, 9):
             print("❌ Python 3.9 or higher is required")
             return False
-        print(f"✅ Python {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}")
+        print(
+            f"✅ Python {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}"
+        )
 
         # Check for pip or uv
         has_uv = shutil.which("uv") is not None
@@ -109,7 +120,7 @@ class SetupWizard:
             self.workspace / "memory",
             self.workspace / "skills",
             self.workspace / "plugins",
-            self.workspace / "jobs"
+            self.workspace / "jobs",
         ]
 
         for directory in directories:
@@ -128,22 +139,22 @@ class SetupWizard:
                 "description": "Run models locally on your machine",
                 "type": "ollama",
                 "needs_install": True,
-                "install_instructions": "Visit https://ollama.com and follow installation instructions"
+                "install_instructions": "Visit https://ollama.com and follow installation instructions",
             },
             {
                 "id": "openai_api",
                 "name": "OpenAI API",
                 "description": "Use OpenAI's GPT models (requires API key)",
                 "type": "openai_compatible",
-                "needs_install": False
+                "needs_install": False,
             },
             {
                 "id": "openrouter",
                 "name": "OpenRouter",
                 "description": "Access to many models through one API (requires API key)",
                 "type": "openrouter",
-                "needs_install": False
-            }
+                "needs_install": False,
+            },
         ]
 
         print("\nAvailable providers:")
@@ -179,7 +190,9 @@ class SetupWizard:
 
         # Check if Ollama is installed and running
         try:
-            result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(
+                ["ollama", "--version"], capture_output=True, text=True, timeout=5
+            )
             if result.returncode == 0:
                 print("✅ Ollama is installed")
             else:
@@ -198,7 +211,9 @@ class SetupWizard:
             subprocess.run(["ollama", "pull", default_model], check=True)
             print("✅ Model pulled successfully")
         except subprocess.CalledProcessError:
-            print("⚠️  Failed to pull model. You can do this later with: ollama pull qwen3")
+            print(
+                "⚠️  Failed to pull model. You can do this later with: ollama pull qwen3"
+            )
 
         return {
             "id": "ollama_default",
@@ -223,7 +238,9 @@ class SetupWizard:
             print("❌ API key is required")
             return None
 
-        model = input("Enter model name (default: gpt-4o-mini): ").strip() or "gpt-4o-mini"
+        model = (
+            input("Enter model name (default: gpt-4o-mini): ").strip() or "gpt-4o-mini"
+        )
 
         return {
             "id": "openai_default",
@@ -248,7 +265,10 @@ class SetupWizard:
             print("❌ API key is required")
             return None
 
-        model = input("Enter model name (default: openai/gpt-4o-mini): ").strip() or "openai/gpt-4o-mini"
+        model = (
+            input("Enter model name (default: openai/gpt-4o-mini): ").strip()
+            or "openai/gpt-4o-mini"
+        )
 
         return {
             "id": "openrouter_default",
@@ -270,7 +290,9 @@ class SetupWizard:
         print("   You can create a Telegram bot to interact with MiniClaw.")
         print("   Visit https://core.telegram.org/bots#botfather to create a bot.")
 
-        configure = input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
+        configure = (
+            input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
+        )
         if configure not in ["y", "yes"]:
             return None
 
@@ -290,8 +312,9 @@ class SetupWizard:
             "progress_update_seconds": 12,
         }
 
-    def _create_default_config(self, provider_config: Dict[str, Any],
-                               telegram_config: Optional[Dict[str, Any]]) -> None:
+    def _create_default_config(
+        self, provider_config: Dict[str, Any], telegram_config: Optional[Dict[str, Any]]
+    ) -> None:
         """Create the default configuration file."""
         print(f"\n⚙️  Creating configuration at {self.config_path}")
 
@@ -307,7 +330,8 @@ class SetupWizard:
                 "default_provider_id": provider_config["id"],
                 "items": [provider_config],
             },
-            "telegram": telegram_config or {
+            "telegram": telegram_config
+            or {
                 "enabled": False,
                 "bot_token": "",
                 "allowed_chat_ids": [],
@@ -382,75 +406,60 @@ class SetupWizard:
         }
 
         # Write config file
-        self.config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        self.config_path.write_text(
+            json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         print("   ✅ Configuration created")
 
     def _create_default_files(self) -> None:
         """Create default memory and skill files."""
         print("\n📄 Creating default files...")
 
-        # Memory files
+        # Import constants to access template directories
+        from ..core.constants import (
+            MEMORY_TEMPLATE_DIR,
+            SKILLS_TEMPLATE_DIR,
+            PLUGINS_TEMPLATE_DIR,
+        )
+
+        # Copy memory files from templates
         memory_dir = self.workspace / "memory"
         memory_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
-        memory_files = {
-            "soul.md": (
-                "# Soul\n\n"
-                "Core stance:\n"
-                "- Be clear, concrete, and practical.\n"
-                "- Prefer explicit tradeoffs over vague advice.\n"
-                "- Keep actions observable.\n"
-            ),
-            "user.md": (
-                "# User Profile\n\n"
-                "- Preferred style: direct, low fluff.\n"
-                "- Update this file when stable user preferences become clear.\n"
-            ),
-            "project.md": (
-                "# Project Context\n\n"
-                "- Record durable architecture decisions, constraints, and known risks.\n"
-            ),
-            "journal.md": (
-                "# Journal\n\n"
-                "Append short timestamped summaries of important interactions and outcomes.\n"
-            ),
-        }
+        if MEMORY_TEMPLATE_DIR.exists():
+            for template_file in MEMORY_TEMPLATE_DIR.iterdir():
+                if template_file.is_file():
+                    dest_file = memory_dir / template_file.name
+                    if not dest_file.exists():
+                        dest_file.write_text(
+                            template_file.read_text(encoding="utf-8"), encoding="utf-8"
+                        )
+                        print(f"   ✅ Created {template_file.name}")
 
-        for filename, content in memory_files.items():
-            filepath = memory_dir / filename
-            if not filepath.exists():
-                filepath.write_text(content, encoding="utf-8")
-                print(f"   ✅ Created {filename}")
-
-        # Skill files
+        # Copy skill files from templates
         skills_dir = self.workspace / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
-        skill_files = {
-            "issue_triage.md": (
-                "# Issue Triage\n\n"
-                "keywords: bug,incident,error,regression,fix,root cause\n\n"
-                "When queries involve production issues, prioritize:\n"
-                "1. observed symptoms,\n"
-                "2. likely root causes,\n"
-                "3. next diagnostic steps,\n"
-                "4. rollback/mitigation options.\n"
-            ),
-            "research_compare.md": (
-                "# Research Compare\n\n"
-                "keywords: compare,comparison,tradeoff,options,evaluate\n\n"
-                "For comparison requests, provide concise option tables with clear pros/cons and decision criteria.\n"
-            ),
-            "ship_plan.md": (
-                "# Ship Plan\n\n"
-                "keywords: plan,roadmap,milestone,deliver,ship,launch\n\n"
-                "For execution planning, return phased steps with dependencies, risks, and success checks.\n"
-            ),
-        }
+        if SKILLS_TEMPLATE_DIR.exists():
+            for template_file in SKILLS_TEMPLATE_DIR.iterdir():
+                if template_file.is_file():
+                    dest_file = skills_dir / template_file.name
+                    if not dest_file.exists():
+                        dest_file.write_text(
+                            template_file.read_text(encoding="utf-8"), encoding="utf-8"
+                        )
+                        print(f"   ✅ Created {template_file.name}")
 
-        for filename, content in skill_files.items():
-            filepath = skills_dir / filename
-            if not filepath.exists():
-                filepath.write_text(content, encoding="utf-8")
-                print(f"   ✅ Created {filename}")
+        # Copy plugin files from templates (optional)
+        plugins_dir = self.workspace / "plugins"
+        plugins_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+        if PLUGINS_TEMPLATE_DIR.exists():
+            for template_file in PLUGINS_TEMPLATE_DIR.iterdir():
+                if template_file.is_file():
+                    dest_file = plugins_dir / template_file.name
+                    if not dest_file.exists():
+                        dest_file.write_text(
+                            template_file.read_text(encoding="utf-8"), encoding="utf-8"
+                        )
+                        print(f"   ✅ Created {template_file.name}")
 
 
 def run_setup_wizard() -> int:

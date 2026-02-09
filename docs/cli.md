@@ -17,7 +17,7 @@ The MiniClaw CLI provides a comprehensive set of commands for managing your AI a
 
 ### `miniclaw install`
 
-Run the enhanced interactive setup wizard with KeyDB installation.
+Run the enhanced interactive setup wizard with Valkey installation.
 
 ```bash
 miniclaw install
@@ -25,7 +25,7 @@ miniclaw install
 
 Features:
 - Step-by-step interactive setup process
-- KeyDB automatic installation and configuration
+- Valkey automatic installation and configuration
 - Navigation between steps (back, forward, jump to specific steps)
 - Configuration review before applying changes
 - Workspace customization options

@@ -1,18 +1,21 @@
 """Long-term memory files (soul, user, project, journal)."""
+
 from __future__ import annotations
 
 import threading
 from pathlib import Path
 from typing import Any, Dict, List
 
-from ..core.constants import DEFAULT_MEMORY_FILES
+from ..core.constants import MEMORY_TEMPLATE_DIR
 from ..core.config import ConfigStore
 from ..core.events import EventLog
 from ..core.util import utc_now
 
 
 class MemoryStore:
-    def __init__(self, memory_dir: Path, config_store: ConfigStore, event_log: EventLog) -> None:
+    def __init__(
+        self, memory_dir: Path, config_store: ConfigStore, event_log: EventLog
+    ) -> None:
         self.memory_dir = memory_dir
         self._config_store = config_store
         self._event_log = event_log
@@ -23,7 +26,17 @@ class MemoryStore:
     def _configured_files(self) -> List[str]:
         config = self._config_store.get()
         memory_cfg = config.get("memory") or {}
-        files = memory_cfg.get("files") or list(DEFAULT_MEMORY_FILES.keys())
+        files = memory_cfg.get("files") or []
+
+        # If no files are configured, use default memory files from templates
+        if not files:
+            if MEMORY_TEMPLATE_DIR.exists():
+                files = [
+                    f.name
+                    for f in MEMORY_TEMPLATE_DIR.iterdir()
+                    if f.is_file() and f.suffix == ".md"
+                ]
+
         if not isinstance(files, list):
             files = [files]
         normalized: List[str] = []
@@ -38,7 +51,12 @@ class MemoryStore:
                 continue
             if safe not in normalized:
                 normalized.append(safe)
-        return normalized or list(DEFAULT_MEMORY_FILES.keys())
+
+        # If still no files, provide default list
+        if not normalized:
+            normalized = ["soul.md", "user.md", "project.md", "journal.md"]
+
+        return normalized
 
     def _max_chars(self) -> int:
         config = self._config_store.get()
@@ -51,7 +69,11 @@ class MemoryStore:
         return bool(memory_cfg.get("enabled", True))
 
     def _file_path(self, name: str) -> Path:
-        safe = "".join(ch for ch in str(name).strip().lower() if ch.isalnum() or ch in {"_", "-", "."})
+        safe = "".join(
+            ch
+            for ch in str(name).strip().lower()
+            if ch.isalnum() or ch in {"_", "-", "."}
+        )
         if not safe.endswith(".md"):
             safe = f"{safe}.md" if safe else ""
         if not safe:
@@ -70,8 +92,15 @@ class MemoryStore:
                 path = self._file_path(name)
                 if path.exists():
                     continue
-                template = DEFAULT_MEMORY_FILES.get(name, f"# {path.stem.title()}\n\n")
-                path.write_text(str(template).rstrip() + "\n", encoding="utf-8")
+
+                # Try to get template content from template files
+                template_content = f"# {path.stem.title()}\n\n"
+                if MEMORY_TEMPLATE_DIR.exists():
+                    template_file = MEMORY_TEMPLATE_DIR / name
+                    if template_file.exists():
+                        template_content = template_file.read_text(encoding="utf-8")
+
+                path.write_text(str(template_content).rstrip() + "\n", encoding="utf-8")
                 created.append(name)
         if created:
             self._event_log.add(
@@ -190,7 +219,11 @@ class MemoryStore:
             f"- assistant: {str(assistant_response).strip()[:1000]}\n"
         )
         with self._lock:
-            existing = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+            existing = (
+                path.read_text(encoding="utf-8", errors="replace")
+                if path.exists()
+                else ""
+            )
             path.write_text(existing.rstrip() + entry + "\n", encoding="utf-8")
         self._event_log.add(
             "memory.journal.appended",

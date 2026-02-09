@@ -1,4 +1,5 @@
 """Test the enhanced setup wizard."""
+
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,7 @@ class TestEnhancedSetupWizard(unittest.TestCase):
         """Test that the enhanced setup wizard can be imported."""
         try:
             from miniclaw.setup.enhanced_setup_wizard import EnhancedSetupWizard
+
             self.assertTrue(True)
         except ImportError:
             self.fail("Failed to import EnhancedSetupWizard")
@@ -17,19 +19,25 @@ class TestEnhancedSetupWizard(unittest.TestCase):
     def test_enhanced_setup_wizard_has_navigation(self):
         """Test that the enhanced setup wizard has navigation features."""
         from miniclaw.setup.enhanced_setup_wizard import EnhancedSetupWizard
+
         wizard = EnhancedSetupWizard()
-        
+
         # Check that steps are defined
-        self.assertTrue(hasattr(wizard, 'steps'))
+        self.assertTrue(hasattr(wizard, "steps"))
         self.assertIsInstance(wizard.steps, list)
         self.assertGreater(len(wizard.steps), 0)
-        
-        # Check for KeyDB installation step
-        self.assertIn("KeyDB Installation", wizard.steps)
+
+        # Check for Database installation step
+        self.assertIn("Database Installation", wizard.steps)
 
     def test_enhanced_setup_wizard_file_exists(self):
         """Test that the enhanced setup wizard file exists."""
-        setup_file = Path(__file__).parent.parent / "miniclaw" / "setup" / "enhanced_setup_wizard.py"
+        setup_file = (
+            Path(__file__).parent.parent
+            / "miniclaw"
+            / "setup"
+            / "enhanced_setup_wizard.py"
+        )
         self.assertTrue(setup_file.exists(), f"Expected {setup_file} to exist")
 
 

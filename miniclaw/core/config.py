@@ -1,4 +1,5 @@
 """Configuration load, normalize, and save."""
+
 from __future__ import annotations
 
 import copy
@@ -8,7 +9,7 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .constants import BASE_DIR, DEFAULT_MEMORY_FILES
+from .constants import BASE_DIR, MEMORY_TEMPLATE_DIR
 from .events import EventLog
 from .util import LOGGER, deep_merge, env_bool
 
@@ -28,7 +29,9 @@ class ConfigStore:
                 "port": 8787,
             },
             "ollama": {
-                "base_url": os.getenv("OLLAMA_BASE_URL", "https://asusxl-linux.time-royal.ts.net"),
+                "base_url": os.getenv(
+                    "OLLAMA_BASE_URL", "https://asusxl-linux.time-royal.ts.net"
+                ),
                 "model": os.getenv("OLLAMA_MODEL", "gpt-oss:20b"),
                 "temperature": 0.2,
                 "timeout_seconds": 300,
@@ -42,7 +45,9 @@ class ConfigStore:
                         "name": "Ollama Default",
                         "type": "ollama",
                         "enabled": True,
-                        "base_url": os.getenv("OLLAMA_BASE_URL", "https://asusxl-linux.time-royal.ts.net"),
+                        "base_url": os.getenv(
+                            "OLLAMA_BASE_URL", "https://asusxl-linux.time-royal.ts.net"
+                        ),
                         "api_key": "",
                         "model": os.getenv("OLLAMA_MODEL", "gpt-oss:20b"),
                         "temperature": 0.2,
@@ -55,7 +60,9 @@ class ConfigStore:
                         "name": "LiteLLM Default",
                         "type": "litellm",
                         "enabled": False,
-                        "base_url": os.getenv("LITELLM_BASE_URL", "http://localhost:4000"),
+                        "base_url": os.getenv(
+                            "LITELLM_BASE_URL", "http://localhost:4000"
+                        ),
                         "api_key": os.getenv("LITELLM_API_KEY", ""),
                         "model": os.getenv("LITELLM_MODEL", "gpt-4o-mini"),
                         "temperature": 0.2,
@@ -68,14 +75,16 @@ class ConfigStore:
                         "name": "OpenRouter Default",
                         "type": "openrouter",
                         "enabled": False,
-                        "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+                        "base_url": os.getenv(
+                            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+                        ),
                         "api_key": os.getenv("OPENROUTER_API_KEY", ""),
                         "model": os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
                         "temperature": 0.2,
                         "timeout_seconds": 300,
                         "verify_tls": env_bool("OPENROUTER_VERIFY_TLS", True),
                         "system_prompt_override": "",
-                    }
+                    },
                 ],
             },
             "telegram": {
@@ -159,15 +168,24 @@ class ConfigStore:
         merged["server"]["host"] = str(merged["server"].get("host") or "127.0.0.1")
         merged["server"]["port"] = int(merged["server"].get("port") or 8787)
 
-        def normalize_provider(provider: Any, fallback_id: str) -> Optional[Dict[str, Any]]:
+        def normalize_provider(
+            provider: Any, fallback_id: str
+        ) -> Optional[Dict[str, Any]]:
             if not isinstance(provider, dict):
                 return None
             raw_id = str(provider.get("id") or fallback_id).strip().lower()
-            provider_id = "".join(ch for ch in raw_id if ch.isalnum() or ch in {"_", "-"})
+            provider_id = "".join(
+                ch for ch in raw_id if ch.isalnum() or ch in {"_", "-"}
+            )
             if not provider_id:
                 return None
             provider_type = str(provider.get("type") or "ollama").strip().lower()
-            if provider_type not in {"ollama", "openai_compatible", "litellm", "openrouter"}:
+            if provider_type not in {
+                "ollama",
+                "openai_compatible",
+                "litellm",
+                "openrouter",
+            }:
                 provider_type = "ollama"
             if provider_type == "ollama":
                 base_default = "https://asusxl-linux.time-royal.ts.net"
@@ -195,7 +213,9 @@ class ConfigStore:
                 "temperature": float(provider.get("temperature") or 0.2),
                 "timeout_seconds": max(5, int(provider.get("timeout_seconds") or 300)),
                 "verify_tls": bool(provider.get("verify_tls", True)),
-                "system_prompt_override": str(provider.get("system_prompt_override") or ""),
+                "system_prompt_override": str(
+                    provider.get("system_prompt_override") or ""
+                ),
             }
 
         providers_raw = merged.get("providers")
@@ -207,7 +227,9 @@ class ConfigStore:
         providers_items: List[Dict[str, Any]] = []
         seen_provider_ids: set[str] = set()
         for idx, item in enumerate(providers_items_raw):
-            normalized_item = normalize_provider(item, fallback_id=f"provider_{idx+1}")
+            normalized_item = normalize_provider(
+                item, fallback_id=f"provider_{idx + 1}"
+            )
             if normalized_item is None:
                 continue
             if normalized_item["id"] in seen_provider_ids:
@@ -216,7 +238,9 @@ class ConfigStore:
             providers_items.append(normalized_item)
 
         if not providers_items:
-            legacy_ollama = merged.get("ollama") if isinstance(merged.get("ollama"), dict) else {}
+            legacy_ollama = (
+                merged.get("ollama") if isinstance(merged.get("ollama"), dict) else {}
+            )
             legacy_provider = normalize_provider(
                 {
                     "id": "ollama_default",
@@ -239,7 +263,9 @@ class ConfigStore:
         if not providers_items:
             defaults = self._default()["providers"]["items"]
             for idx, item in enumerate(defaults):
-                normalized_item = normalize_provider(item, fallback_id=f"provider_{idx+1}")
+                normalized_item = normalize_provider(
+                    item, fallback_id=f"provider_{idx + 1}"
+                )
                 if normalized_item is not None:
                     providers_items.append(normalized_item)
 
@@ -248,9 +274,13 @@ class ConfigStore:
             providers_items[0]["enabled"] = True
 
         provider_ids = [item["id"] for item in providers_items]
-        default_provider_id = str(providers_raw.get("default_provider_id") or "").strip().lower()
+        default_provider_id = (
+            str(providers_raw.get("default_provider_id") or "").strip().lower()
+        )
         if default_provider_id not in provider_ids:
-            enabled_ids = [item["id"] for item in providers_items if item.get("enabled")]
+            enabled_ids = [
+                item["id"] for item in providers_items if item.get("enabled")
+            ]
             default_provider_id = enabled_ids[0] if enabled_ids else provider_ids[0]
 
         merged["providers"] = {
@@ -259,10 +289,15 @@ class ConfigStore:
         }
 
         provider_index = {item["id"]: item for item in providers_items}
-        selected_provider = provider_index.get(default_provider_id) or providers_items[0]
+        selected_provider = (
+            provider_index.get(default_provider_id) or providers_items[0]
+        )
         # Keep legacy ollama section mirrored for compatibility with existing tooling.
         merged["ollama"] = {
-            "base_url": str(selected_provider.get("base_url") or "https://asusxl-linux.time-royal.ts.net"),
+            "base_url": str(
+                selected_provider.get("base_url")
+                or "https://asusxl-linux.time-royal.ts.net"
+            ),
             "model": str(selected_provider.get("model") or "gpt-oss:20b"),
             "temperature": float(selected_provider.get("temperature") or 0.2),
             "timeout_seconds": int(selected_provider.get("timeout_seconds") or 300),
@@ -277,22 +312,34 @@ class ConfigStore:
         if isinstance(raw_channel_telegram, dict):
             source_has_telegram = isinstance(source, dict) and "telegram" in source
             if source_has_telegram:
-                merged["telegram"] = deep_merge(raw_channel_telegram, merged["telegram"])
+                merged["telegram"] = deep_merge(
+                    raw_channel_telegram, merged["telegram"]
+                )
             else:
-                merged["telegram"] = deep_merge(merged["telegram"], raw_channel_telegram)
+                merged["telegram"] = deep_merge(
+                    merged["telegram"], raw_channel_telegram
+                )
 
         merged["telegram"]["enabled"] = bool(merged["telegram"].get("enabled"))
         merged["telegram"]["bot_token"] = str(merged["telegram"].get("bot_token") or "")
-        binding_mode = str(merged["telegram"].get("binding_mode") or "single").strip().lower()
-        merged["telegram"]["binding_mode"] = "single" if binding_mode not in {"single"} else binding_mode
+        binding_mode = (
+            str(merged["telegram"].get("binding_mode") or "single").strip().lower()
+        )
+        merged["telegram"]["binding_mode"] = (
+            "single" if binding_mode not in {"single"} else binding_mode
+        )
         raw_ids = merged["telegram"].get("allowed_chat_ids") or []
         if not isinstance(raw_ids, list):
             raw_ids = [raw_ids]
         normalized_ids = [str(item).strip() for item in raw_ids if str(item).strip()]
         # Telegram is intentionally single-user bound. Keep at most one chat id.
         merged["telegram"]["allowed_chat_ids"] = normalized_ids[:1]
-        merged["telegram"]["poll_interval_seconds"] = max(1, int(merged["telegram"].get("poll_interval_seconds") or 2))
-        merged["telegram"]["pairing_required"] = bool(merged["telegram"].get("pairing_required", True))
+        merged["telegram"]["poll_interval_seconds"] = max(
+            1, int(merged["telegram"].get("poll_interval_seconds") or 2)
+        )
+        merged["telegram"]["pairing_required"] = bool(
+            merged["telegram"].get("pairing_required", True)
+        )
         merged["telegram"]["pairing_code_ttl_seconds"] = max(
             60, int(merged["telegram"].get("pairing_code_ttl_seconds") or 600)
         )
@@ -303,10 +350,14 @@ class ConfigStore:
         merged["agent"]["name"] = str(merged["agent"].get("name") or "MiniClaw")
         legacy_prompt = str(merged["agent"].get("system_prompt") or "").strip()
         merged["agent"]["system_prompt_default"] = str(
-            merged["agent"].get("system_prompt_default") or legacy_prompt or "You are MiniClaw."
+            merged["agent"].get("system_prompt_default")
+            or legacy_prompt
+            or "You are MiniClaw."
         )
         merged["agent"]["system_prompt"] = merged["agent"]["system_prompt_default"]
-        merged["agent"]["max_history_messages"] = max(2, int(merged["agent"].get("max_history_messages") or 12))
+        merged["agent"]["max_history_messages"] = max(
+            2, int(merged["agent"].get("max_history_messages") or 12)
+        )
 
         enabled_skills = merged["agent"].get("enabled_skills") or []
         if not isinstance(enabled_skills, list):
@@ -325,14 +376,31 @@ class ConfigStore:
         enabled_plugins = merged["agent"].get("enabled_plugins") or []
         if not isinstance(enabled_plugins, list):
             enabled_plugins = [enabled_plugins]
-        merged["agent"]["enabled_plugins"] = [str(plugin).strip() for plugin in enabled_plugins if str(plugin).strip()]
-        merged["agent"]["skill_match_min_score"] = max(1, int(merged["agent"].get("skill_match_min_score") or 2))
-        merged["agent"]["seeded_default_skills"] = bool(merged["agent"].get("seeded_default_skills", False))
+        merged["agent"]["enabled_plugins"] = [
+            str(plugin).strip() for plugin in enabled_plugins if str(plugin).strip()
+        ]
+        merged["agent"]["skill_match_min_score"] = max(
+            1, int(merged["agent"].get("skill_match_min_score") or 2)
+        )
+        merged["agent"]["seeded_default_skills"] = bool(
+            merged["agent"].get("seeded_default_skills", False)
+        )
 
         memory_raw = merged.get("memory")
         if not isinstance(memory_raw, dict):
             memory_raw = {}
-        memory_files = memory_raw.get("files") or list(DEFAULT_MEMORY_FILES.keys())
+
+        # Get memory files from config or use defaults from templates
+        memory_files = memory_raw.get("files") or []
+        if not memory_files:
+            # If no files specified, use default memory files from templates
+            if MEMORY_TEMPLATE_DIR.exists():
+                memory_files = [
+                    f.name
+                    for f in MEMORY_TEMPLATE_DIR.iterdir()
+                    if f.is_file() and f.suffix == ".md"
+                ]
+
         if not isinstance(memory_files, list):
             memory_files = [memory_files]
         normalized_memory_files: List[str] = []
@@ -347,12 +415,17 @@ class ConfigStore:
                 continue
             if safe not in normalized_memory_files:
                 normalized_memory_files.append(safe)
+
+        # If still no files, provide default list
         if not normalized_memory_files:
-            normalized_memory_files = list(DEFAULT_MEMORY_FILES.keys())
+            normalized_memory_files = ["soul.md", "user.md", "project.md", "journal.md"]
+
         merged["memory"] = {
             "enabled": bool(memory_raw.get("enabled", True)),
             "files": normalized_memory_files,
-            "max_chars_per_file": max(500, int(memory_raw.get("max_chars_per_file") or 3000)),
+            "max_chars_per_file": max(
+                500, int(memory_raw.get("max_chars_per_file") or 3000)
+            ),
         }
 
         tools_raw = merged.get("tools")
@@ -366,8 +439,12 @@ class ConfigStore:
             "allow_network": bool(tools_raw.get("allow_network", True)),
             "allow_browser": bool(tools_raw.get("allow_browser", True)),
             "allow_mcp": bool(tools_raw.get("allow_mcp", True)),
-            "command_timeout_seconds": max(3, min(300, int(tools_raw.get("command_timeout_seconds") or 25))),
-            "output_char_limit": max(2000, min(200000, int(tools_raw.get("output_char_limit") or 12000))),
+            "command_timeout_seconds": max(
+                3, min(300, int(tools_raw.get("command_timeout_seconds") or 25))
+            ),
+            "output_char_limit": max(
+                2000, min(200000, int(tools_raw.get("output_char_limit") or 12000))
+            ),
             "working_directory": str(tools_raw.get("working_directory") or BASE_DIR),
         }
 
@@ -382,7 +459,7 @@ class ConfigStore:
         for idx, item in enumerate(mcp_servers_raw):
             if not isinstance(item, dict):
                 continue
-            raw_id = str(item.get("id") or f"mcp_{idx+1}").strip().lower()
+            raw_id = str(item.get("id") or f"mcp_{idx + 1}").strip().lower()
             server_id = "".join(ch for ch in raw_id if ch.isalnum() or ch in {"_", "-"})
             if not server_id or server_id in seen_mcp_ids:
                 continue
@@ -405,8 +482,14 @@ class ConfigStore:
                     "command": str(item.get("command") or "").strip(),
                     "args": [str(arg) for arg in args_raw if str(arg).strip()],
                     "cwd": str(item.get("cwd") or "").strip(),
-                    "env": {str(key): str(value) for key, value in env_raw.items() if str(key).strip()},
-                    "timeout_seconds": max(5, min(300, int(item.get("timeout_seconds") or 30))),
+                    "env": {
+                        str(key): str(value)
+                        for key, value in env_raw.items()
+                        if str(key).strip()
+                    },
+                    "timeout_seconds": max(
+                        5, min(300, int(item.get("timeout_seconds") or 30))
+                    ),
                 }
             )
         merged["mcp"] = {
@@ -425,7 +508,9 @@ class ConfigStore:
         }
         merged.pop("transparency", None)
 
-        active_channel = str(merged["channels"].get("active_channel") or "telegram").strip().lower()
+        active_channel = (
+            str(merged["channels"].get("active_channel") or "telegram").strip().lower()
+        )
         if active_channel not in {"telegram", "whatsapp_wacli", "email"}:
             active_channel = "telegram"
 
@@ -450,8 +535,12 @@ class ConfigStore:
                 "enabled": bool(whatsapp_raw.get("enabled", False)),
                 "wacli_command": str(whatsapp_raw.get("wacli_command") or "wacli"),
                 "session": str(whatsapp_raw.get("session") or ""),
-                "allowed_contacts": [str(item).strip() for item in whatsapp_allowed if str(item).strip()],
-                "poll_interval_seconds": max(5, int(whatsapp_raw.get("poll_interval_seconds") or 15)),
+                "allowed_contacts": [
+                    str(item).strip() for item in whatsapp_allowed if str(item).strip()
+                ],
+                "poll_interval_seconds": max(
+                    5, int(whatsapp_raw.get("poll_interval_seconds") or 15)
+                ),
             },
             "email": {
                 "enabled": bool(email_raw.get("enabled", False)),
@@ -460,13 +549,19 @@ class ConfigStore:
                 "username": str(email_raw.get("username") or ""),
                 "password": str(email_raw.get("password") or ""),
                 "from_address": str(email_raw.get("from_address") or ""),
-                "allowed_senders": [str(item).strip() for item in email_allowed if str(item).strip()],
-                "poll_interval_seconds": max(15, int(email_raw.get("poll_interval_seconds") or 60)),
+                "allowed_senders": [
+                    str(item).strip() for item in email_allowed if str(item).strip()
+                ],
+                "poll_interval_seconds": max(
+                    15, int(email_raw.get("poll_interval_seconds") or 60)
+                ),
             },
         }
 
         merged["jobs"]["enabled"] = bool(merged["jobs"].get("enabled", True))
-        merged["jobs"]["seeded_default_jobs"] = bool(merged["jobs"].get("seeded_default_jobs", False))
+        merged["jobs"]["seeded_default_jobs"] = bool(
+            merged["jobs"].get("seeded_default_jobs", False)
+        )
         merged["jobs"]["jobs"] = []
         return merged
 
@@ -474,17 +569,27 @@ class ConfigStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if not self.path.exists():
             defaults = self._default()
-            self.path.write_text(json.dumps(defaults, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            self.path.write_text(
+                json.dumps(defaults, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
             self._config = defaults
-            self._event_log.add("config.created", "Created default config file", {"path": str(self.path)})
+            self._event_log.add(
+                "config.created",
+                "Created default config file",
+                {"path": str(self.path)},
+            )
             LOGGER.info("Created default config at %s", self.path)
             return
 
         raw = self.path.read_text(encoding="utf-8")
         loaded = json.loads(raw) if raw.strip() else {}
         self._config = self._normalize(loaded)
-        self.path.write_text(json.dumps(self._config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        self._event_log.add("config.loaded", "Loaded config file", {"path": str(self.path)})
+        self.path.write_text(
+            json.dumps(self._config, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        self._event_log.add(
+            "config.loaded", "Loaded config file", {"path": str(self.path)}
+        )
         LOGGER.info("Loaded config from %s", self.path)
 
     def get(self) -> Dict[str, Any]:
