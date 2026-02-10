@@ -761,6 +761,7 @@ class TelegramService:
                         "stage": "working",
                         "last_sent_at": 0.0,
                         "initial_ack_sent": False,  # Track if we've sent initial ack
+                        "update_count": 0,  # Track number of progress updates sent
                     }
                     progress_done = threading.Event()
                     typing_done = threading.Event()
@@ -792,15 +793,41 @@ class TelegramService:
                                 return
                             progress_state["last_sent_at"] = now
                             elapsed = int(now - processing_started_at)
-                            try:
-                                self._send_message(
-                                    token,
-                                    chat_id,
-                                    f"MiniClaw update {elapsed}s: {text_message}",
-                                )
-                            except Exception as exc:
-                                self._event_log.add(
-                                    "telegram.progress.error",
+                            # Make progress updates more human-like
+                            if elapsed >= 10:  # Only send updates after 10 seconds
+                                # Limit total progress updates to avoid spam (max 3 updates)
+                                update_count = progress_state.get("update_count", 0)
+                                if update_count < 3:
+                                    natural_updates = {
+                                        "analyze": "Analyzing your request...",
+                                        "plugins": "Checking relevant skills...",
+                                        "model": "Thinking...",
+                                        "model_call": "Working on it...",
+                                        "tool": "Looking into this...",  # Handle tool calls with tool name
+                                        "tool_call": "Looking into this...",
+                                        "finalize": "Almost done...",
+                                        "final": "Wrapping up...",
+                                    }
+                                    
+                                    # Handle dynamic tool names like "tool gpt-oss:20b"
+                                    human_message = text_message
+                                    if text_message.startswith("model "):
+                                        human_message = "Thinking..."
+                                    elif text_message.startswith("tool "):
+                                        human_message = "Looking into this..."
+                                    else:
+                                        human_message = natural_updates.get(text_message, "Working...")
+                                    
+                                    try:
+                                        self._send_message(
+                                            token,
+                                            chat_id,
+                                            human_message,
+                                        )
+                                        progress_state["update_count"] = update_count + 1
+                                    except Exception as exc:
+                                        self._event_log.add(
+                                            "telegram.progress.error",
                                     "Failed to send progress update",
                                     {
                                         "chat_id": str(chat_id),
