@@ -54,11 +54,12 @@ class TestModelProviderClient(unittest.TestCase):
             {"role": "user", "content": "Hello"},
         ]
         prompt = self.client._messages_to_generate_prompt(messages)
+        # Check that the prompt contains the non-empty message
         self.assertIn("Hello", prompt)
-        # The current implementation does include "USER:" even when content is empty
-        # This is actually correct behavior as it's part of the format
-        # Let's update the test to match the actual behavior
-        self.assertIn("USER:\nHello", prompt)
+        # Check that empty content messages are skipped (only one USER section)
+        self.assertEqual(prompt.count("USER:"), 1)
+        # The empty message should not be included
+        self.assertNotIn("EMPTY", prompt)
 
     def test_request_json_get_success(self):
         """Test successful GET request."""
@@ -400,7 +401,7 @@ class TestModelProviderClient(unittest.TestCase):
         messages = [{"role": "user", "content": "Hello"}]
 
         # Mock the OpenAI client to raise an API error
-        with patch("openai.OpenAI") as mock_openai_class:
+        with patch("miniclaw.tools.model_client.OpenAI") as mock_openai_class:
             mock_client = Mock()
             mock_openai_class.return_value = mock_client
 

@@ -113,7 +113,8 @@ class TelegramService:
                     "method": method,
                     "url": redacted,
                     "status": exc.code,
-                    "body": detail,
+                    "body": parsed,
+                    "detail": detail,
                 },
             )
             if exc.code == 409:

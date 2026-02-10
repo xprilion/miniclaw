@@ -190,6 +190,14 @@ class TestToolRunner(unittest.TestCase):
         # Should resolve to the configured working directory (handle path resolution differences)
         self.assertEqual(workdir.resolve(), Path(self.temp_dir).resolve())
 
+    def test_resolve_workdir_relative_path(self):
+        """Test resolving work directory with relative path."""
+        workdir = self.tool_runner._resolve_workdir("subdir")
+        self.assertIsInstance(workdir, Path)
+        # Should resolve to base directory + relative path (handle path resolution differences)
+        expected = (Path(self.temp_dir) / "subdir").resolve()
+        self.assertEqual(workdir.resolve(), expected)
+
     def test_resolve_workdir_absolute_path(self):
         """Test resolving work directory with absolute path."""
         abs_path = "/tmp/test"
