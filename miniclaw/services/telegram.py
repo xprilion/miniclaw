@@ -762,6 +762,7 @@ class TelegramService:
                         "last_sent_at": 0.0,
                         "initial_ack_sent": False,  # Track if we've sent initial ack
                         "update_count": 0,  # Track number of progress updates sent
+                        "tool_history": [],  # Track tools that have been used
                     }
                     progress_done = threading.Event()
                     typing_done = threading.Event()
@@ -822,6 +823,10 @@ class TelegramService:
                                             human_message = "Thinking through your question..."
                                     elif text_message.startswith("tool "):
                                         tool_name = text_message[5:]  # Remove "tool " prefix
+                                        # Track tool usage for cumulative updates
+                                        if tool_name not in progress_state["tool_history"]:
+                                            progress_state["tool_history"].append(tool_name)
+                                        
                                         # More specific tool descriptions with "why" context
                                         if "search" in tool_name.lower() or "web" in tool_name.lower():
                                             human_message = "Searching the web for current information..."
@@ -848,6 +853,13 @@ class TelegramService:
                                         else:
                                             # Generic but still informative
                                             human_message = f"Looking up information using {tool_name}..."
+                                        
+                                        # If multiple tools have been used, provide context
+                                        if len(progress_state["tool_history"]) > 1:
+                                            # For the last few updates, provide a summary
+                                            if update_count >= 2:  # On third update and beyond
+                                                tool_count = len(progress_state["tool_history"])
+                                                human_message = f"Still working... Used {tool_count} different tools so far to find the best answer for you."
                                     else:
                                         human_message = descriptive_updates.get(text_message, "Working on your request...")
                                     
