@@ -79,7 +79,7 @@ class ToolRunner:
             },
             {
                 "name": "jobs_create",
-                "description": "Create or update a scheduled job that runs periodically.",
+                "description": "Create or update a scheduled job that runs periodically. To stop/disable a job, set enabled=false rather than deleting it.",
                 "args_schema": {
                     "id": "string", 
                     "name": "string", 
@@ -96,8 +96,15 @@ class ToolRunner:
             },
             {
                 "name": "jobs_delete",
-                "description": "Delete a scheduled job by ID.",
+                "description": "Delete a scheduled job by ID. Prefer disabling jobs (set enabled=false in jobs_create) rather than deleting to preserve configuration.",
                 "args_schema": {"id": "string"},
+            },
+            {
+                "name": "jobs_toggle",
+                "description": "Toggle a job between enabled and disabled states. Preferred way to temporarily stop/start jobs.",
+                "args_schema": {
+                    "id": "string"
+                },
             },
             {
                 "name": "jobs_run",
@@ -672,6 +679,63 @@ class ToolRunner:
         except Exception as e:
             raise Exception(f"Failed to delete job: {str(e)}")
 
+    def _jobs_toggle(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Toggle a job between enabled and disabled states.
+        
+        Args:
+            arguments: Tool arguments containing job ID
+            
+        Returns:
+            Dictionary with toggle result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+            
+        # Validate required argument
+        job_id = str(arguments.get("id", "")).strip()
+        if not job_id:
+            raise ValueError("Job ID is required")
+            
+        try:
+            # Get the current job to see its state
+            current_job = None
+            jobs = self._app_state.job_store.list()
+            for job in jobs:
+                if job.get("id") == job_id:
+                    current_job = job
+                    break
+                    
+            if current_job is None:
+                raise ValueError(f"Job '{job_id}' not found")
+                
+            # Toggle the enabled state
+            new_enabled_state = not bool(current_job.get("enabled", True))
+            
+            # Update the job with the new state
+            job_payload = {
+                "id": job_id,
+                "name": current_job.get("name", job_id),
+                "prompt": current_job.get("prompt", ""),
+                "interval_seconds": current_job.get("interval_seconds", 300),
+                "enabled": new_enabled_state,
+                "send_to_telegram_chat_id": current_job.get("send_to_telegram_chat_id", ""),
+            }
+            
+            # Use the app_state's upsert_job method
+            updated_job = self._app_state.upsert_job(job_payload)
+            state_text = "enabled" if new_enabled_state else "disabled"
+            
+            return {
+                "success": True,
+                "message": f"Job '{job_id}' has been {state_text}",
+                "job": updated_job,
+                "previous_state": "enabled" if not new_enabled_state else "disabled",
+                "new_state": state_text
+            }
+        except Exception as e:
+            raise Exception(f"Failed to toggle job: {str(e)}")
+
     def _jobs_run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Manually trigger a job to run.
@@ -766,6 +830,10 @@ class ToolRunner:
                 if not self._allow("allow_network", True):
                     raise PermissionError("jobs_delete is disabled in tools config")
                 result = self._jobs_delete(args)
+            elif name == "jobs_toggle":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_toggle is disabled in tools config")
+                result = self._jobs_toggle(args)
             elif name == "jobs_run":
                 if not self._allow("allow_network", True):
                     raise PermissionError("jobs_run is disabled in tools config")
