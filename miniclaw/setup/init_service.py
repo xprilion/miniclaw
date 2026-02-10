@@ -50,7 +50,7 @@ def install_linux_service():
     if not os.path.exists("/etc/systemd/system"):
         print("systemd not found. Cannot install service automatically.")
         return False
-    
+
     # Additional check to ensure systemd is functional
     try:
         # Try to run systemctl to verify systemd is actually available

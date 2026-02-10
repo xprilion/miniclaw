@@ -455,7 +455,7 @@ class ContentFilter:
         # Check for common secret patterns
         if re.match(r"^[A-Za-z0-9_+=/-]+$", text) and len(text) > 30:  # Increased threshold
             return True
-            
+
         # For structured data like credit cards, SSNs, just return True
         # since they match specific patterns that are meant to be filtered
         ssn_pattern = r"\b\d{3}-\d{2}-\d{4}\b"
