@@ -6,9 +6,8 @@ After=network.target
 Type=simple
 User=xprilion
 Group=xprilion
-WorkingDirectory=/home/xprilion/.openclaw/workspace/miniclaw
 Environment=PATH=/home/xprilion/.openclaw/workspace/miniclaw/.venv/bin:/home/xprilion/.local/bin:/home/xprilion/.opencode/bin:/home/xprilion/.local/share/pnpm:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/xprilion/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
-ExecStart=/home/xprilion/.openclaw/workspace/miniclaw/.venv/bin/miniclaw gateway
+ExecStart=/usr/local/bin/miniclaw-runner.sh
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -18,7 +17,7 @@ StandardError=journal
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
+# Remove ProtectHome to allow access to home directory
 ReadWritePaths=/home/xprilion/.miniclaw
 
 [Install]
