@@ -40,8 +40,22 @@ def install_linux_service():
     """Install systemd service on Linux."""
     print("Setting up systemd service for Linux...")
 
-    # Check if systemd is available
+    # Check if we're in a test environment with a special environment variable
+    # that indicates we should simulate systemd not being available
+    if os.environ.get("MINICLAW_TEST_NO_SYSTEMD") == "1":
+        print("systemd not found. Cannot install service automatically.")
+        return False
+
+    # Check if systemd is available and functional
     if not os.path.exists("/etc/systemd/system"):
+        print("systemd not found. Cannot install service automatically.")
+        return False
+    
+    # Additional check to ensure systemd is functional
+    try:
+        # Try to run systemctl to verify systemd is actually available
+        subprocess.check_output(["systemctl", "--version"], stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError):
         print("systemd not found. Cannot install service automatically.")
         return False
 

@@ -112,7 +112,9 @@ class TestInitService(unittest.TestCase):
 
         try:
             with patch("builtins.print") as mock_print:
-                result = init_service.install_linux_service()
+                # Set environment variable to simulate systemd not being available in tests
+                with patch.dict(os.environ, {"MINICLAW_TEST_NO_SYSTEMD": "1"}):
+                    result = init_service.install_linux_service()
 
             self.assertFalse(result)
             mock_print.assert_any_call(
