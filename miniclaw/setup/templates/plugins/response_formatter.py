@@ -22,6 +22,13 @@ def _format_for_telegram(response: str) -> str:
     formatted = re.sub(r'\[Tool Result.*?\]', '', formatted, flags=re.DOTALL)
     formatted = re.sub(r'\{"tool":.*?\}', '', formatted)
     
+    # Remove other technical artifacts
+    formatted = re.sub(r'\[Skill:.*?\]', '', formatted, flags=re.DOTALL)
+    formatted = re.sub(r'\[Memory:.*?\]', '', formatted, flags=re.DOTALL)
+    formatted = re.sub(r'Trace ID:.*?\n', '', formatted)
+    formatted = re.sub(r'trace_id=.*?;', '', formatted)
+    formatted = re.sub(r'trace-[0-9]+', '', formatted)
+    
     # Clean up extra whitespace
     formatted = re.sub(r'\n\s*\n\s*\n', '\n\n', formatted)
     formatted = formatted.strip()
@@ -67,6 +74,9 @@ def _make_conversational(response: str) -> str:
         r'I have (executed|run) the following.*?:': 'I checked the following:',
         r'According to.*?:': '',
         r'Based on.*?:': '',
+        r'I\'?ve analyzed.*?:': 'Looking at this:',
+        r'I\'?ve checked.*?:': 'I found that:',
+        r'After reviewing.*?:': 'Here\'s what I discovered:',
     }
     
     for pattern, replacement in replacements.items():
@@ -78,14 +88,33 @@ def _make_conversational(response: str) -> str:
         r'As MiniClaw.*?:',
         r'The requested action.*?:',
         r'Here is the result.*?:',
+        r'Let me.*?:',
+        r'Allow me to.*?:',
     ]
     
     for phrase in redundant_phrases:
         formatted = re.sub(phrase, '', formatted, flags=re.IGNORECASE)
     
+    # Make responses sound more human
+    human_phrases = {
+        r'Furthermore,': 'Also,',
+        r'Additionally,': 'Also,',
+        r'Moreover,': 'Also,',
+        r'However,': 'But,',
+        r'Nevertheless,': 'But,',
+        r'Consequently,': 'So,',
+        r'Therefore,': 'So,',
+    }
+    
+    for phrase, replacement in human_phrases.items():
+        formatted = re.sub(phrase, replacement, formatted, flags=re.IGNORECASE)
+    
     # Clean up extra spaces
     formatted = re.sub(r'\s+', ' ', formatted)
     formatted = re.sub(r'\n\s*\n', '\n\n', formatted)
+    
+    # Make sure sentences start with capital letters
+    formatted = re.sub(r'(\.|\!|\?)\s+([a-z])', lambda m: m.group(1) + ' ' + m.group(2).upper(), formatted)
     
     return formatted.strip()
 
