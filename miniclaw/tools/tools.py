@@ -179,8 +179,15 @@ class ToolRunner:
                     continue
                 if name in {"list_dir", "read_file", "write_file"} and not self._allow("allow_filesystem", True):
                     continue
-                if name in {"fetch_url"} and not self._allow("allow_network", True):
+                # Network-dependent tools
+                if name in {"fetch_url", "brave_search"} and not self._allow("allow_network", True):
                     continue
+                # Jobs tools depend on network access and app_state
+                if name.startswith("jobs_"):
+                    if not self._allow("allow_network", True):
+                        continue
+                    if self._app_state is None:
+                        continue
                 if name in {"browser_extract"} and not self._allow("allow_browser", True):
                     continue
                 tools.append(copy.deepcopy(item))
@@ -713,13 +720,8 @@ class ToolRunner:
             raise ValueError("Job ID is required")
 
         try:
-            # Get the current job to see its state
-            current_job = None
-            jobs = self._app_state.job_store.list()
-            for job in jobs:
-                if job.get("id") == job_id:
-                    current_job = job
-                    break
+            # Get the current job to see its state (using efficient get method)
+            current_job = self._app_state.job_store.get(job_id)
 
             if current_job is None:
                 raise ValueError(f"Job '{job_id}' not found")
@@ -789,9 +791,17 @@ class ToolRunner:
         # Store source information for tools that need it (e.g., jobs_create)
         source = trace_details.get("source", "unknown")
         self._current_source = source
-        self._current_meta = trace_details.get("meta", {})
-        if source == "telegram" and "chat_id" in self._current_meta:
-            self._current_chat_id = self._current_meta["chat_id"]
+
+        # Safely handle meta data to prevent runtime errors
+        meta = trace_details.get("meta") or {}
+        if not isinstance(meta, dict):
+            meta = {}
+        self._current_meta = meta
+
+        # Safely extract chat_id with proper type handling
+        if source == "telegram":
+            chat_id = self._current_meta.get("chat_id")
+            self._current_chat_id = str(chat_id) if chat_id is not None else None
         else:
             self._current_chat_id = None
 

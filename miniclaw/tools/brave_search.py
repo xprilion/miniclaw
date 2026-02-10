@@ -58,12 +58,17 @@ class BraveSearchClient:
             data = json.loads(response.read().decode())
             return data
         except urllib.error.HTTPError as e:
-            error_data = e.read().decode()
+            error_data = e.read().decode() if e.readable() else ""
             try:
-                error_json = json.loads(error_data)
-                raise Exception(f"Brave Search API error: {error_json.get('message', str(e))}")
+                if error_data:
+                    error_json = json.loads(error_data)
+                    raise Exception(f"Brave Search API error: {error_json.get('message', str(e))}")
+                else:
+                    raise Exception(f"Brave Search API HTTP error {e.code}: {e.reason}")
             except json.JSONDecodeError:
-                raise Exception(f"Brave Search API error: {error_data}")
+                raise Exception(f"Brave Search API error: {error_data or str(e)}")
+        except urllib.error.URLError as e:
+            raise Exception(f"Network error while connecting to Brave Search API: {str(e)}")
         except Exception as e:
             raise Exception(f"Failed to perform search: {str(e)}")
 
