@@ -1,4 +1,4 @@
-"""Agent tools: shell, filesystem, fetch, browser, MCP, search."""
+"""Agent tools: shell, filesystem, fetch, browser, MCP, search, jobs."""
 from __future__ import annotations
 
 import copy
@@ -14,17 +14,20 @@ from ..services.mcp import MCPServerManager
 from ..core.parser import HTMLTextExtractor
 from ..security.security import SandboxManager
 from ..core.util import extract_json_object, truncate_text
+from ..core.app_state import AppState
+from .brave_search import BraveSearchClient
 
 
 class ToolRunner:
-    """Agent tools: shell, filesystem, fetch, browser, MCP, search."""
+    """Agent tools: shell, filesystem, fetch, browser, MCP, search, jobs."""
 
     def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager,
-                 security_managers: Optional[Dict[str, Any]] = None) -> None:
+                 security_managers: Optional[Dict[str, Any]] = None, app_state: Optional[AppState] = None) -> None:
         self._config_store = config_store
         self._event_log = event_log
         self._mcp = mcp
-        self._security = security_managers or {}
+        self._security_managers = security_managers or {}
+        self._app_state = app_state
         self._sandbox = SandboxManager(config_store, event_log)
         self._brave_search_client: Optional[BraveSearchClient] = None
         self._tool_defs: List[Dict[str, Any]] = [
@@ -67,6 +70,33 @@ class ToolRunner:
                     "country": "string(optional, default='us')", 
                     "search_lang": "string(optional, default='en')"
                 },
+            },
+            {
+                "name": "jobs_create",
+                "description": "Create or update a scheduled job that runs periodically.",
+                "args_schema": {
+                    "id": "string", 
+                    "name": "string", 
+                    "prompt": "string",
+                    "interval_seconds": "int(optional, default=300)",
+                    "enabled": "boolean(optional, default=true)",
+                    "send_to_telegram_chat_id": "string(optional)"
+                },
+            },
+            {
+                "name": "jobs_list",
+                "description": "List all scheduled jobs.",
+                "args_schema": {},
+            },
+            {
+                "name": "jobs_delete",
+                "description": "Delete a scheduled job by ID.",
+                "args_schema": {"id": "string"},
+            },
+            {
+                "name": "jobs_run",
+                "description": "Manually trigger a job to run immediately.",
+                "args_schema": {"id": "string"},
             },
             {
                 "name": "mcp_list_servers",
@@ -528,6 +558,137 @@ class ToolRunner:
         except Exception as e:
             raise Exception(f"Brave Search failed: {str(e)}")
 
+    def _jobs_create(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create or update a scheduled job.
+        
+        Args:
+            arguments: Tool arguments for job creation
+            
+        Returns:
+            Dictionary with job creation result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+            
+        # Validate required arguments
+        job_id = str(arguments.get("id", "")).strip()
+        name = str(arguments.get("name", "")).strip()
+        prompt = str(arguments.get("prompt", "")).strip()
+        
+        if not job_id:
+            raise ValueError("Job ID is required")
+        if not name:
+            raise ValueError("Job name is required")
+        if not prompt:
+            raise ValueError("Job prompt is required")
+            
+        # Get optional parameters with defaults
+        interval_seconds = int(arguments.get("interval_seconds", 300))
+        enabled = bool(arguments.get("enabled", True))
+        send_to_telegram_chat_id = str(arguments.get("send_to_telegram_chat_id", "")).strip()
+        
+        # Create job payload
+        job_payload = {
+            "id": job_id,
+            "name": name,
+            "prompt": prompt,
+            "interval_seconds": interval_seconds,
+            "enabled": enabled,
+            "send_to_telegram_chat_id": send_to_telegram_chat_id,
+        }
+        
+        try:
+            # Use the app_state's upsert_job method
+            created_job = self._app_state.upsert_job(job_payload)
+            return {
+                "success": True,
+                "message": f"Job '{name}' ({job_id}) created/updated successfully",
+                "job": created_job
+            }
+        except Exception as e:
+            raise Exception(f"Failed to create job: {str(e)}")
+
+    def _jobs_list(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List all scheduled jobs.
+        
+        Args:
+            arguments: Tool arguments (empty for this tool)
+            
+        Returns:
+            Dictionary with list of jobs
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+            
+        try:
+            # Use the app_state's job_store to list jobs
+            jobs = self._app_state.job_store.list()
+            return {
+                "success": True,
+                "jobs": jobs,
+                "count": len(jobs)
+            }
+        except Exception as e:
+            raise Exception(f"Failed to list jobs: {str(e)}")
+
+    def _jobs_delete(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Delete a scheduled job.
+        
+        Args:
+            arguments: Tool arguments containing job ID
+            
+        Returns:
+            Dictionary with deletion result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+            
+        # Validate required argument
+        job_id = str(arguments.get("id", "")).strip()
+        if not job_id:
+            raise ValueError("Job ID is required")
+            
+        try:
+            # Use the app_state's delete_job method
+            self._app_state.delete_job(job_id)
+            return {
+                "success": True,
+                "message": f"Job '{job_id}' deleted successfully"
+            }
+        except Exception as e:
+            raise Exception(f"Failed to delete job: {str(e)}")
+
+    def _jobs_run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Manually trigger a job to run.
+        
+        Args:
+            arguments: Tool arguments containing job ID
+            
+        Returns:
+            Dictionary with run result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+            
+        # Validate required argument
+        job_id = str(arguments.get("id", "")).strip()
+        if not job_id:
+            raise ValueError("Job ID is required")
+            
+        try:
+            # Use the app_state's job_service to trigger the job
+            result = self._app_state.job_service.trigger_now(job_id)
+            return {
+                "success": True,
+                "result": result
+            }
+        except Exception as e:
+            raise Exception(f"Failed to run job: {str(e)}")
+
     def run(self, tool_name: str, arguments: Optional[Dict[str, Any]],
             trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
         name = str(tool_name or "").strip()
@@ -573,6 +734,22 @@ class ToolRunner:
                 if not self._allow("allow_network", True):
                     raise PermissionError("brave_search is disabled in tools config")
                 result = self._brave_search(args)
+            elif name == "jobs_create":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_create is disabled in tools config")
+                result = self._jobs_create(args)
+            elif name == "jobs_list":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_list is disabled in tools config")
+                result = self._jobs_list(args)
+            elif name == "jobs_delete":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_delete is disabled in tools config")
+                result = self._jobs_delete(args)
+            elif name == "jobs_run":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_run is disabled in tools config")
+                result = self._jobs_run(args)
             elif name == "mcp_list_servers":
                 if not self._allow("allow_mcp", True):
                     raise PermissionError("MCP tools are disabled in tools config")
