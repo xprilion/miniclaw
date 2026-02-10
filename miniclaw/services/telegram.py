@@ -808,7 +808,7 @@ class TelegramService:
                                         "finalize": "Putting together the final response...",
                                         "final": "Finishing up...",
                                     }
-                                    
+
                                     # Handle dynamic messages like "model Qwen/Qwen3-235B-A22B-Thinking-2507"
                                     human_message = text_message
                                     if text_message.startswith("model "):
@@ -826,7 +826,7 @@ class TelegramService:
                                         # Track tool usage for cumulative updates
                                         if tool_name not in progress_state["tool_history"]:
                                             progress_state["tool_history"].append(tool_name)
-                                        
+
                                         # More specific tool descriptions with "why" context
                                         if "search" in tool_name.lower() or "web" in tool_name.lower():
                                             human_message = "Searching the web for current information..."
@@ -853,16 +853,21 @@ class TelegramService:
                                         else:
                                             # Generic but still informative
                                             human_message = f"Looking up information using {tool_name}..."
-                                        
+
                                         # If multiple tools have been used, provide context
                                         if len(progress_state["tool_history"]) > 1:
                                             # For the last few updates, provide a summary
                                             if update_count >= 2:  # On third update and beyond
                                                 tool_count = len(progress_state["tool_history"])
-                                                human_message = f"Still working... Used {tool_count} different tools so far to find the best answer for you."
+                                                human_message = (
+                                                    f"Still working... Used {tool_count} different tools so far "
+                                                    f"to find the best answer for you."
+                                                )
                                     else:
-                                        human_message = descriptive_updates.get(text_message, "Working on your request...")
-                                    
+                                        human_message = descriptive_updates.get(
+                                            text_message, "Working on your request..."
+                                        )
+
                                     try:
                                         self._send_message(
                                             token,
@@ -873,12 +878,12 @@ class TelegramService:
                                     except Exception as exc:
                                         self._event_log.add(
                                             "telegram.progress.error",
-                                    "Failed to send progress update",
-                                    {
-                                        "chat_id": str(chat_id),
-                                        "error": f"{exc.__class__.__name__}: {exc}",
-                                    },
-                                )
+                                            "Failed to send progress update",
+                                            {
+                                                "chat_id": str(chat_id),
+                                                "error": f"{exc.__class__.__name__}: {exc}",
+                                            },
+                                        )
 
                     def on_status(stage_message: str) -> None:
                         # Store the stage message for progress updates

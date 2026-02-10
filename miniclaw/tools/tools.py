@@ -71,18 +71,21 @@ class ToolRunner:
                 "name": "brave_search",
                 "description": "Search the web using Brave Search API for current information.",
                 "args_schema": {
-                    "query": "string", 
-                    "count": "int(optional, default=5)", 
-                    "country": "string(optional, default='us')", 
+                    "query": "string",
+                    "count": "int(optional, default=5)",
+                    "country": "string(optional, default='us')",
                     "search_lang": "string(optional, default='en')"
                 },
             },
             {
                 "name": "jobs_create",
-                "description": "Create or update a scheduled job that runs periodically. To stop/disable a job, set enabled=false rather than deleting it.",
+                "description": (
+                    "Create or update a scheduled job that runs periodically. To stop/disable a job, "
+                    "set enabled=false rather than deleting it."
+                ),
                 "args_schema": {
-                    "id": "string", 
-                    "name": "string", 
+                    "id": "string",
+                    "name": "string",
                     "prompt": "string",
                     "interval_seconds": "int(optional, default=300)",
                     "enabled": "boolean(optional, default=true)",
@@ -96,12 +99,18 @@ class ToolRunner:
             },
             {
                 "name": "jobs_delete",
-                "description": "Delete a scheduled job by ID. Prefer disabling jobs (set enabled=false in jobs_create) rather than deleting to preserve configuration.",
+                "description": (
+                    "Delete a scheduled job by ID. Prefer disabling jobs (set enabled=false in jobs_create) "
+                    "rather than deleting to preserve configuration."
+                ),
                 "args_schema": {"id": "string"},
             },
             {
                 "name": "jobs_toggle",
-                "description": "Toggle a job between enabled and disabled states. Preferred way to temporarily stop/start jobs.",
+                "description": (
+                    "Toggle a job between enabled and disabled states. Preferred way to temporarily "
+                    "stop/start jobs."
+                ),
                 "args_schema": {
                     "id": "string"
                 },
@@ -156,7 +165,7 @@ class ToolRunner:
     def catalog(self, include_mcp_details: bool = False) -> Dict[str, Any]:
         cfg = self._cfg()
         enabled = bool(cfg.get("enabled", True))
-        
+
         # If tools are disabled globally, return empty tools list
         if not enabled:
             tools = []
@@ -522,22 +531,22 @@ class ToolRunner:
         """Initialize Brave Search client with API key from config."""
         if self._brave_search_client is not None:
             return self._brave_search_client
-            
+
         config = self._cfg()
         api_key = config.get("brave_search", {}).get("api_key")
         if not api_key:
             raise PermissionError("Brave Search API key not configured in tools config")
-            
+
         self._brave_search_client = BraveSearchClient(api_key)
         return self._brave_search_client
 
     def _brave_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Perform web search using Brave Search API.
-        
+
         Args:
             arguments: Tool arguments containing query and optional parameters
-            
+
         Returns:
             Dictionary with search results
         """
@@ -545,18 +554,18 @@ class ToolRunner:
         query = arguments.get("query")
         if not query:
             raise ValueError("Search query is required")
-        
+
         # Get optional parameters with defaults
         count = arguments.get("count", 5)
         country = arguments.get("country", "us")
         search_lang = arguments.get("search_lang", "en")
-        
+
         # Initialize Brave Search client
         try:
             client = self._init_brave_search_client()
         except PermissionError as e:
             raise PermissionError(f"Brave Search is not available: {str(e)}")
-        
+
         # Perform search
         try:
             search_results = client.search(
@@ -565,10 +574,10 @@ class ToolRunner:
                 country=country,
                 search_lang=search_lang
             )
-            
+
             # Format results
             formatted_results = client.format_results(search_results)
-            
+
             return {
                 "results": formatted_results,
                 "total_results": len(formatted_results),
@@ -580,38 +589,38 @@ class ToolRunner:
     def _jobs_create(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create or update a scheduled job.
-        
+
         Args:
             arguments: Tool arguments for job creation
-            
+
         Returns:
             Dictionary with job creation result
         """
         if self._app_state is None:
             raise PermissionError("Job management not available - app_state not provided")
-            
+
         # Validate required arguments
         job_id = str(arguments.get("id", "")).strip()
         name = str(arguments.get("name", "")).strip()
         prompt = str(arguments.get("prompt", "")).strip()
-        
+
         if not job_id:
             raise ValueError("Job ID is required")
         if not name:
             raise ValueError("Job name is required")
         if not prompt:
             raise ValueError("Job prompt is required")
-            
+
         # Get optional parameters with defaults
         interval_seconds = int(arguments.get("interval_seconds", 300))
         enabled = bool(arguments.get("enabled", True))
         send_to_telegram_chat_id = str(arguments.get("send_to_telegram_chat_id", "")).strip()
-        
-        # If no chat ID was provided but we're in a Telegram context, 
+
+        # If no chat ID was provided but we're in a Telegram context,
         # automatically set it to the requesting chat ID
         if not send_to_telegram_chat_id and hasattr(self, '_current_chat_id'):
             send_to_telegram_chat_id = self._current_chat_id
-            
+
         # Create job payload
         job_payload = {
             "id": job_id,
@@ -621,7 +630,7 @@ class ToolRunner:
             "enabled": enabled,
             "send_to_telegram_chat_id": send_to_telegram_chat_id,
         }
-        
+
         try:
             # Use the app_state's upsert_job method
             created_job = self._app_state.upsert_job(job_payload)
@@ -636,16 +645,16 @@ class ToolRunner:
     def _jobs_list(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         List all scheduled jobs.
-        
+
         Args:
             arguments: Tool arguments (empty for this tool)
-            
+
         Returns:
             Dictionary with list of jobs
         """
         if self._app_state is None:
             raise PermissionError("Job management not available - app_state not provided")
-            
+
         try:
             # Use the app_state's job_store to list jobs
             jobs = self._app_state.job_store.list()
@@ -660,21 +669,21 @@ class ToolRunner:
     def _jobs_delete(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Delete a scheduled job.
-        
+
         Args:
             arguments: Tool arguments containing job ID
-            
+
         Returns:
             Dictionary with deletion result
         """
         if self._app_state is None:
             raise PermissionError("Job management not available - app_state not provided")
-            
+
         # Validate required argument
         job_id = str(arguments.get("id", "")).strip()
         if not job_id:
             raise ValueError("Job ID is required")
-            
+
         try:
             # Use the app_state's delete_job method
             self._app_state.delete_job(job_id)
@@ -688,21 +697,21 @@ class ToolRunner:
     def _jobs_toggle(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Toggle a job between enabled and disabled states.
-        
+
         Args:
             arguments: Tool arguments containing job ID
-            
+
         Returns:
             Dictionary with toggle result
         """
         if self._app_state is None:
             raise PermissionError("Job management not available - app_state not provided")
-            
+
         # Validate required argument
         job_id = str(arguments.get("id", "")).strip()
         if not job_id:
             raise ValueError("Job ID is required")
-            
+
         try:
             # Get the current job to see its state
             current_job = None
@@ -711,13 +720,13 @@ class ToolRunner:
                 if job.get("id") == job_id:
                     current_job = job
                     break
-                    
+
             if current_job is None:
                 raise ValueError(f"Job '{job_id}' not found")
-                
+
             # Toggle the enabled state
             new_enabled_state = not bool(current_job.get("enabled", True))
-            
+
             # Update the job with the new state
             job_payload = {
                 "id": job_id,
@@ -727,11 +736,11 @@ class ToolRunner:
                 "enabled": new_enabled_state,
                 "send_to_telegram_chat_id": current_job.get("send_to_telegram_chat_id", ""),
             }
-            
+
             # Use the app_state's upsert_job method
             updated_job = self._app_state.upsert_job(job_payload)
             state_text = "enabled" if new_enabled_state else "disabled"
-            
+
             return {
                 "success": True,
                 "message": f"Job '{job_id}' has been {state_text}",
@@ -745,21 +754,21 @@ class ToolRunner:
     def _jobs_run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Manually trigger a job to run.
-        
+
         Args:
             arguments: Tool arguments containing job ID
-            
+
         Returns:
             Dictionary with run result
         """
         if self._app_state is None:
             raise PermissionError("Job management not available - app_state not provided")
-            
+
         # Validate required argument
         job_id = str(arguments.get("id", "")).strip()
         if not job_id:
             raise ValueError("Job ID is required")
-            
+
         try:
             # Use the app_state's job_service to trigger the job
             result = self._app_state.job_service.trigger_now(job_id)
