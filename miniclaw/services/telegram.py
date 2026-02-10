@@ -822,14 +822,32 @@ class TelegramService:
                                             human_message = "Thinking through your question..."
                                     elif text_message.startswith("tool "):
                                         tool_name = text_message[5:]  # Remove "tool " prefix
+                                        # More specific tool descriptions with "why" context
                                         if "search" in tool_name.lower() or "web" in tool_name.lower():
                                             human_message = "Searching the web for current information..."
-                                        elif "file" in tool_name.lower():
+                                        elif "file" in tool_name.lower() or "filesystem" in tool_name.lower():
                                             human_message = "Looking through files and documents..."
                                         elif "memory" in tool_name.lower():
                                             human_message = "Checking stored knowledge and context..."
+                                        elif "browser" in tool_name.lower():
+                                            human_message = "Browsing the web to find what you need..."
+                                        elif "shell" in tool_name.lower() or "command" in tool_name.lower():
+                                            human_message = "Running commands to get the information..."
+                                        elif "network" in tool_name.lower():
+                                            human_message = "Making network requests to fetch data..."
+                                        elif "telegram" in tool_name.lower():
+                                            human_message = "Checking Telegram-related information..."
+                                        elif "whatsapp" in tool_name.lower():
+                                            human_message = "Checking WhatsApp-related information..."
+                                        elif "email" in tool_name.lower():
+                                            human_message = "Checking email-related information..."
+                                        elif "calendar" in tool_name.lower() or "date" in tool_name.lower():
+                                            human_message = "Checking calendar and date information..."
+                                        elif "news" in tool_name.lower():
+                                            human_message = "Looking for recent news updates..."
                                         else:
-                                            human_message = "Looking up specific details..."
+                                            # Generic but still informative
+                                            human_message = f"Looking up information using {tool_name}..."
                                     else:
                                         human_message = descriptive_updates.get(text_message, "Working on your request...")
                                     
@@ -851,9 +869,7 @@ class TelegramService:
                                 )
 
                     def on_status(stage_message: str) -> None:
-                        # Instead of just the stage name, we want more descriptive messages
-                        # But for now, we'll pass through the stage message and let send_progress handle it
-                        # The real descriptive information comes from the agent's "why" parameter
+                        # Store the stage message for progress updates
                         compact = str(stage_message or "").strip() or "working"
                         progress_state["stage"] = compact
                         send_progress(compact)
