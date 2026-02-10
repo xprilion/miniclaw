@@ -447,9 +447,21 @@ class ConfigStore:
             ),
             "working_directory": str(tools_raw.get("working_directory") or BASE_DIR),
             # Preserve additional tool configurations like permissions
-            "permissions": dict(tools_raw.get("permissions", {})) if isinstance(tools_raw.get("permissions"), dict) else {},
-            "user_permissions": dict(tools_raw.get("user_permissions", {})) if isinstance(tools_raw.get("user_permissions"), dict) else {},
-            "group_permissions": dict(tools_raw.get("group_permissions", {})) if isinstance(tools_raw.get("group_permissions"), dict) else {},
+            "permissions": (
+                dict(tools_raw.get("permissions", {}))
+                if isinstance(tools_raw.get("permissions"), dict)
+                else {}
+            ),
+            "user_permissions": (
+                dict(tools_raw.get("user_permissions", {}))
+                if isinstance(tools_raw.get("user_permissions"), dict)
+                else {}
+            ),
+            "group_permissions": (
+                dict(tools_raw.get("group_permissions", {}))
+                if isinstance(tools_raw.get("group_permissions"), dict)
+                else {}
+            ),
         }
 
         mcp_raw = merged.get("mcp")
