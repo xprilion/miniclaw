@@ -155,23 +155,29 @@ class ToolRunner:
 
     def catalog(self, include_mcp_details: bool = False) -> Dict[str, Any]:
         cfg = self._cfg()
-        tools: List[Dict[str, Any]] = []
-        for item in self._tool_defs:
-            name = str(item.get("name") or "")
-            if name.startswith("mcp_") and not self._allow("allow_mcp", True):
-                continue
-            if name in {"run_command"} and not self._allow("allow_shell", True):
-                continue
-            if name in {"list_dir", "read_file", "write_file"} and not self._allow("allow_filesystem", True):
-                continue
-            if name in {"fetch_url"} and not self._allow("allow_network", True):
-                continue
-            if name in {"browser_extract"} and not self._allow("allow_browser", True):
-                continue
-            tools.append(copy.deepcopy(item))
+        enabled = bool(cfg.get("enabled", True))
+        
+        # If tools are disabled globally, return empty tools list
+        if not enabled:
+            tools = []
+        else:
+            tools: List[Dict[str, Any]] = []
+            for item in self._tool_defs:
+                name = str(item.get("name") or "")
+                if name.startswith("mcp_") and not self._allow("allow_mcp", True):
+                    continue
+                if name in {"run_command"} and not self._allow("allow_shell", True):
+                    continue
+                if name in {"list_dir", "read_file", "write_file"} and not self._allow("allow_filesystem", True):
+                    continue
+                if name in {"fetch_url"} and not self._allow("allow_network", True):
+                    continue
+                if name in {"browser_extract"} and not self._allow("allow_browser", True):
+                    continue
+                tools.append(copy.deepcopy(item))
 
         payload: Dict[str, Any] = {
-            "enabled": bool(cfg.get("enabled", True)),
+            "enabled": enabled,
             "max_steps": max(0, int(cfg.get("max_steps") or 0)),
             "tools": tools,
         }
@@ -781,14 +787,14 @@ class ToolRunner:
             self._current_chat_id = None
 
         # Check permissions before executing
-        if hasattr(self, '_security') and self._security.get("permissions"):
-            permissions_manager = self._security["permissions"]
+        if hasattr(self, '_security_managers') and self._security_managers.get("permissions"):
+            permissions_manager = self._security_managers["permissions"]
             if not permissions_manager.check_tool_permission(name, user_id=user_id, context=args):
                 raise PermissionError(f"Permission denied for tool: {name}")
 
         # Apply rate limiting
-        if hasattr(self, '_security') and self._security.get("rate_limiter"):
-            rate_limiter = self._security["rate_limiter"]
+        if hasattr(self, '_security_managers') and self._security_managers.get("rate_limiter"):
+            rate_limiter = self._security_managers["rate_limiter"]
             # Extract IP from trace if available
             ip_address = trace_details.get("client_ip", "") if trace_details else ""
             if not rate_limiter.check_rate_limit(user_id=user_id, ip_address=ip_address):
@@ -864,8 +870,8 @@ class ToolRunner:
             }
 
             # Apply content filtering to results
-            if hasattr(self, '_security') and self._security.get("content_filter"):
-                content_filter = self._security["content_filter"]
+            if hasattr(self, '_security_managers') and self._security_managers.get("content_filter"):
+                content_filter = self._security_managers["content_filter"]
                 # Filter sensitive information from result if it contains text
                 if isinstance(result, dict):
                     for key, value in result.items():
