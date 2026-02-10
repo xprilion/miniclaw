@@ -54,8 +54,9 @@ class AppState:
         )
 
         self.skills = SkillRegistry(SKILLS_DIR, self.event_log)
-        self._seed_defaults_once()
         self.plugins = PluginRegistry(PLUGINS_DIR, self.event_log)
+        self.job_store = JobStore(JOBS_DIR, self.event_log)
+        self._seed_defaults_once()
         self.plugins.reload()
         loaded = self.config_store.get()
         self.plugins.set_enabled(loaded["agent"].get("enabled_plugins") or [])
@@ -81,7 +82,6 @@ class AppState:
         self.telegram.start_if_enabled()
         self.whatsapp = WhatsAppService(self.config_store, self.event_log, self.agent)
         self.whatsapp.start_if_enabled()
-        self.job_store = JobStore(JOBS_DIR, self.event_log)
         self._migrate_legacy_scheduler_jobs_to_store()
         self.job_service = JobExecutionService(
             self.config_store,
@@ -227,9 +227,8 @@ class AppState:
             )
 
         config = self.config_store.get()
-        seeded_jobs = bool(
-            config.get("scheduler", {}).get("seeded_default_jobs", False)
-        )
+        scheduler_config = config.get("scheduler", {})
+        seeded_jobs = bool(scheduler_config.get("seeded_default_jobs", False))
         if not seeded_jobs:
             existing = self.job_store.list()
             if not existing:
@@ -238,6 +237,8 @@ class AppState:
                         self.job_store.save(item)
                     except (ValueError, OSError):
                         pass
+            if "scheduler" not in config:
+                config["scheduler"] = {}
             config["scheduler"]["seeded_default_jobs"] = True
             self.config_store.save(config)
             self.event_log.add(

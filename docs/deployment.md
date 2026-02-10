@@ -35,34 +35,122 @@ cp miniclaw_config.example.json ~/.miniclaw/miniclaw_config.json
 
 ### 2. Docker Deployment
 
-Create a Dockerfile:
+Docker deployment is the recommended approach for production environments as it provides better isolation, easier management, and consistent behavior across different environments.
+
+#### Prerequisites for Docker Deployment
+
+- Docker 20.04+ installed on the host system
+- Docker Compose (optional but recommended)
+
+#### Optimized Dockerfile
+
+Create a `Dockerfile` at the root of your repository:
 
 ```dockerfile
-FROM python:3.9-slim
+FROM python:3.11-slim
 
-WORKDIR /app
-COPY . .
+# Set environment variables
+ENV MINICLAW_HOST=0.0.0.0
+ENV MINICLAW_PORT=8787
+ENV MINICLAW_WORKSPACE=/home/miniclaw/.miniclaw
+ENV PATH="/home/miniclaw/.local/bin:${PATH}"
 
-RUN pip install -e .
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN useradd -m -s /bin/bash miniclaw
+
+USER miniclaw
+WORKDIR /home/miniclaw
+
+# Copy local code instead of cloning
+COPY --chown=miniclaw:miniclaw . /home/miniclaw/miniclaw
+
+WORKDIR /home/miniclaw/miniclaw
+
+# Install MiniClaw in development mode
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e .
+
+# Create workspace directory
+RUN mkdir -p /home/miniclaw/.miniclaw
+
+# Expose the default port
 EXPOSE 8787
 
-USER 1000
-CMD ["miniclaw", "gateway"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8787/api/health || exit 1
+
+# Run MiniClaw server
+CMD ["python", "-c", "from miniclaw import run; run()"]
 ```
 
-Build and run:
+#### Docker Ignore File
+
+Create a `.dockerignore` file to exclude unnecessary files from the build context:
+
+```gitignore
+.git
+.gitignore
+.coverage
+__pycache__
+*.pyc
+.venv/
+venv/
+.DS_Store
+*.log
+build/
+dist/
+*.egg-info/
+htmlcov/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+frontend/node_modules/
+frontend/dist/
+tmp/
+tests/
+*.md
+!.github/
+!.gitlab/
+
+# Exclude local data that shouldn't be in the image
+.miniclaw/
+```
+
+#### Building the Docker Image
 
 ```bash
+# Build the Docker image
 docker build -t miniclaw .
-docker run -d -p 8787:8787 --name miniclaw \
-  -v ~/.miniclaw:/home/miniclaw/.miniclaw \
+
+# Verify the image was built successfully
+docker images | grep miniclaw
+```
+
+#### Running MiniClaw Container
+
+Basic container run:
+
+```bash
+docker run -d \
+  --name miniclaw \
+  -p 8787:8787 \
+  -v miniclaw_data:/home/miniclaw/.miniclaw \
   miniclaw
 ```
 
-### 3. Docker Compose (Recommended)
+### 3. Docker Compose Deployment (Recommended)
 
-Create `docker-compose.yml`:
+Docker Compose provides the easiest way to manage MiniClaw with all its dependencies and configurations.
+
+Create a `docker-compose.yml` file:
 
 ```yaml
 version: '3.8'
@@ -70,13 +158,14 @@ version: '3.8'
 services:
   miniclaw:
     build: .
+    container_name: miniclaw
     ports:
       - "8787:8787"
-    volumes:
-      - miniclaw_data:/home/miniclaw/.miniclaw
     environment:
       - MINICLAW_HOST=0.0.0.0
       - MINICLAW_PORT=8787
+    volumes:
+      - miniclaw_data:/home/miniclaw/.miniclaw
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -88,10 +177,394 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
 
 volumes:
   miniclaw_data:
 ```
+
+#### Advanced Docker Compose Configuration
+
+For production environments with more complex requirements:
+
+```yaml
+version: '3.8'
+
+services:
+  miniclaw:
+    build: .
+    container_name: miniclaw
+    ports:
+      - "8787:8787"
+    environment:
+      - MINICLAW_HOST=0.0.0.0
+      - MINICLAW_PORT=8787
+      # Configure your model provider
+      - PROVIDER_BASE_URL=https://api.inference.wandb.ai/v1
+      - PROVIDER_MODEL=Qwen/Qwen3-235B-A22B-Thinking-2507
+      - PROVIDER_API_KEY=your-api-key-here
+    volumes:
+      - miniclaw_data:/home/miniclaw/.miniclaw
+      # Mount custom configuration if needed
+      # - ./custom_config.json:/home/miniclaw/.miniclaw/miniclaw_config.json
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+volumes:
+  miniclaw_data:
+```
+
+#### Docker Compose Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Update and restart
+docker-compose up -d --build
+
+# Check service status
+docker-compose ps
+```
+
+### 4. Custom Configuration in Docker
+
+#### Environment Variables
+
+MiniClaw supports several environment variables for configuration:
+
+```bash
+docker run -d \
+  --name miniclaw \
+  -p 8787:8787 \
+  -e MINICLAW_HOST=0.0.0.0 \
+  -e MINICLAW_PORT=8787 \
+  -e MINICLAW_WORKSPACE=/home/miniclaw/.miniclaw \
+  -e PROVIDER_BASE_URL=https://api.inference.wandb.ai/v1 \
+  -e PROVIDER_MODEL=Qwen/Qwen3-235B-A22B-Thinking-2507 \
+  -v miniclaw_data:/home/miniclaw/.miniclaw \
+  miniclaw
+```
+
+#### Custom Configuration File
+
+To use a custom configuration file:
+
+```bash
+# Create a custom config file
+echo '{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8787
+  },
+  "providers": {
+    "default_provider_id": "wandb_inf",
+    "items": [
+      {
+        "api_key": "your-api-key",
+        "base_url": "https://api.inference.wandb.ai/v1",
+        "enabled": true,
+        "id": "wandb_inf",
+        "model": "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "name": "wandb",
+        "temperature": 0.2,
+        "timeout_seconds": 300,
+        "type": "openai_compatible",
+        "verify_tls": true
+      }
+    ]
+  }
+}' > custom_config.json
+
+# Run with custom config
+docker run -d \
+  --name miniclaw \
+  -p 8787:8787 \
+  -v $(pwd)/custom_config.json:/home/miniclaw/.miniclaw/miniclaw_config.json \
+  -v miniclaw_data:/home/miniclaw/.miniclaw \
+  miniclaw
+```
+
+### 5. Telegram Integration in Docker
+
+To enable Telegram integration, you'll need to configure the bot token in your config file or environment variables:
+
+```yaml
+# In docker-compose.yml
+services:
+  miniclaw:
+    # ... other configuration
+    environment:
+      - MINICLAW_HOST=0.0.0.0
+      - MINICLAW_PORT=8787
+      - TELEGRAM_BOT_TOKEN=your-bot-token-here
+    volumes:
+      - miniclaw_data:/home/miniclaw/.miniclaw
+```
+
+Or update the config file directly:
+
+```json
+{
+  "telegram": {
+    "enabled": true,
+    "bot_token": "your-bot-token-here",
+    "allowed_chat_ids": [],
+    "binding_mode": "single",
+    "poll_interval_seconds": 2,
+    "pairing_required": true,
+    "pairing_code_ttl_seconds": 600,
+    "progress_update_seconds": 12
+  }
+}
+```
+
+## Persistent Data
+
+The Docker setup uses a named volume (`miniclaw_data`) to persist data across container restarts. This includes:
+
+- Configuration files
+- Skills
+- Memory files
+- Job definitions
+- Plugin configurations
+
+To backup persistent data:
+
+```bash
+# Create backup
+docker run --rm -v miniclaw_data:/source -v $(pwd):/backup \
+  alpine tar czf /backup/miniclaw_backup.tar.gz -C /source .
+
+# Restore from backup
+docker run --rm -v miniclaw_data:/target -v $(pwd):/backup \
+  alpine tar xzf /backup/miniclaw_backup.tar.gz -C /target
+```
+
+## Updating MiniClaw in Docker
+
+To update MiniClaw:
+
+```bash
+# Pull latest changes
+git pull origin dev
+
+# Rebuild the image
+docker build -t miniclaw .
+
+# Stop and remove the current container
+docker stop miniclaw
+docker rm miniclaw
+
+# Start a new container
+docker run -d \
+  --name miniclaw \
+  -p 8787:8787 \
+  -v miniclaw_data:/home/miniclaw/.miniclaw \
+  miniclaw
+```
+
+Or with Docker Compose:
+
+```bash
+# Pull latest changes
+git pull origin dev
+
+# Rebuild and restart
+docker-compose up -d --build
+```
+
+## Monitoring Docker Deployments
+
+### Check Container Logs
+
+```bash
+# Docker
+docker logs miniclaw
+
+# Docker Compose
+docker-compose logs miniclaw
+
+# Follow logs
+docker logs -f miniclaw
+```
+
+### Access Container Shell
+
+```bash
+# Docker
+docker exec -it miniclaw /bin/bash
+
+# Docker Compose
+docker-compose exec miniclaw /bin/bash
+```
+
+### Health Checks
+
+The Docker images include built-in health checks. You can also manually check:
+
+```bash
+# Check if service is responding
+curl -f http://localhost:8787/api/health
+
+# Check container health status
+docker inspect --format='{{json .State.Health}}' miniclaw
+```
+
+## Docker Security Best Practices
+
+### 1. Run as Non-Root User
+
+The provided Dockerfile already runs as a non-root user (`miniclaw`), which is a security best practice.
+
+### 2. Read-Only Filesystem
+
+The Docker Compose example includes `read_only: true` which prevents the container from writing to most of the filesystem.
+
+### 3. Resource Limits
+
+Set appropriate resource limits to prevent resource exhaustion:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 1G
+      cpus: '0.5'
+```
+
+### 4. Network Security
+
+Only expose necessary ports and consider using Docker networks for internal communication:
+
+```yaml
+services:
+  miniclaw:
+    # ... other config
+    networks:
+      - miniclaw-net
+    expose:
+      - "8787"  # Only expose internally
+
+networks:
+  miniclaw-net:
+    driver: bridge
+```
+
+## Troubleshooting Docker Deployments
+
+### Common Issues
+
+1. **Port Already in Use**: Change the host port mapping:
+   ```bash
+   docker run -d --name miniclaw -p 8788:8787 miniclaw
+   ```
+
+2. **Permission Issues**: Ensure the Docker user has proper permissions to access volumes.
+
+3. **Configuration Errors**: Validate your config file JSON syntax before mounting it.
+
+4. **Health Check Failures**: Check container logs for startup errors:
+   ```bash
+   docker logs miniclaw
+   ```
+
+### Volume Issues
+
+If persistent data seems corrupted:
+
+```bash
+# Check volume contents
+docker volume inspect miniclaw_data
+
+# Create a new volume and migrate data if needed
+docker volume create miniclaw_data_new
+```
+
+## Docker Multi-Stage Builds (Advanced)
+
+For production deployments that require minimal image size:
+
+```dockerfile
+# Build stage
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+COPY . .
+
+# Install build dependencies and compile
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip install --upgrade pip \
+    && pip install --no-cache-dir -e .
+
+# Production stage
+FROM python:3.11-slim
+
+# Set environment variables
+ENV MINICLAW_HOST=0.0.0.0
+ENV MINICLAW_PORT=8787
+ENV MINICLAW_WORKSPACE=/home/miniclaw/.miniclaw
+ENV PATH="/home/miniclaw/.local/bin:${PATH}"
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -s /bin/bash miniclaw
+
+USER miniclaw
+WORKDIR /home/miniclaw
+
+# Copy only the installed packages and source code
+COPY --from=builder --chown=miniclaw:miniclaw /usr/local /usr/local
+COPY --from=builder --chown=miniclaw:miniclaw /home/miniclaw/miniclaw /home/miniclaw/miniclaw
+
+WORKDIR /home/miniclaw/miniclaw
+
+# Create workspace directory
+RUN mkdir -p /home/miniclaw/.miniclaw
+
+# Expose the default port
+EXPOSE 8787
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8787/api/health || exit 1
+
+# Run MiniClaw server
+CMD ["python", "-c", "from miniclaw import run; run()"]
+```
+
+This enhanced deployment guide provides comprehensive instructions for deploying MiniClaw in Docker containers, covering everything from basic setup to advanced production configurations.
 
 ## Security Hardening
 
