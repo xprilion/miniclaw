@@ -1,4 +1,4 @@
-"""Agent tools: shell, filesystem, fetch, browser, MCP."""
+"""Agent tools: shell, filesystem, fetch, browser, MCP, search."""
 from __future__ import annotations
 
 import copy
@@ -17,7 +17,7 @@ from ..core.util import extract_json_object, truncate_text
 
 
 class ToolRunner:
-    """Agent tools: shell, filesystem, fetch, browser, MCP."""
+    """Agent tools: shell, filesystem, fetch, browser, MCP, search."""
 
     def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager,
                  security_managers: Optional[Dict[str, Any]] = None) -> None:
@@ -26,6 +26,7 @@ class ToolRunner:
         self._mcp = mcp
         self._security = security_managers or {}
         self._sandbox = SandboxManager(config_store, event_log)
+        self._brave_search_client: Optional[BraveSearchClient] = None
         self._tool_defs: List[Dict[str, Any]] = [
             {
                 "name": "run_command",
@@ -56,6 +57,16 @@ class ToolRunner:
                 "name": "browser_extract",
                 "description": "Fetch webpage and extract title, text, and links (headless-lite).",
                 "args_schema": {"url": "string", "timeout_seconds": "int(optional)"},
+            },
+            {
+                "name": "brave_search",
+                "description": "Search the web using Brave Search API for current information.",
+                "args_schema": {
+                    "query": "string", 
+                    "count": "int(optional, default=5)", 
+                    "country": "string(optional, default='us')", 
+                    "search_lang": "string(optional, default='en')"
+                },
             },
             {
                 "name": "mcp_list_servers",
@@ -458,6 +469,65 @@ class ToolRunner:
             "link_count": len(links),
         }
 
+    def _init_brave_search_client(self) -> BraveSearchClient:
+        """Initialize Brave Search client with API key from config."""
+        if self._brave_search_client is not None:
+            return self._brave_search_client
+            
+        config = self._cfg()
+        api_key = config.get("brave_search", {}).get("api_key")
+        if not api_key:
+            raise PermissionError("Brave Search API key not configured in tools config")
+            
+        self._brave_search_client = BraveSearchClient(api_key)
+        return self._brave_search_client
+
+    def _brave_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Perform web search using Brave Search API.
+        
+        Args:
+            arguments: Tool arguments containing query and optional parameters
+            
+        Returns:
+            Dictionary with search results
+        """
+        # Validate arguments
+        query = arguments.get("query")
+        if not query:
+            raise ValueError("Search query is required")
+        
+        # Get optional parameters with defaults
+        count = arguments.get("count", 5)
+        country = arguments.get("country", "us")
+        search_lang = arguments.get("search_lang", "en")
+        
+        # Initialize Brave Search client
+        try:
+            client = self._init_brave_search_client()
+        except PermissionError as e:
+            raise PermissionError(f"Brave Search is not available: {str(e)}")
+        
+        # Perform search
+        try:
+            search_results = client.search(
+                query=query,
+                count=count,
+                country=country,
+                search_lang=search_lang
+            )
+            
+            # Format results
+            formatted_results = client.format_results(search_results)
+            
+            return {
+                "results": formatted_results,
+                "total_results": len(formatted_results),
+                "query": query
+            }
+        except Exception as e:
+            raise Exception(f"Brave Search failed: {str(e)}")
+
     def run(self, tool_name: str, arguments: Optional[Dict[str, Any]],
             trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
         name = str(tool_name or "").strip()
@@ -496,7 +566,13 @@ class ToolRunner:
             elif name == "fetch_url":
                 result = self._fetch_url(args)
             elif name == "browser_extract":
+                if not self._allow("allow_browser", True):
+                    raise PermissionError("browser_extract is disabled in tools config")
                 result = self._browser_extract(args)
+            elif name == "brave_search":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("brave_search is disabled in tools config")
+                result = self._brave_search(args)
             elif name == "mcp_list_servers":
                 if not self._allow("allow_mcp", True):
                     raise PermissionError("MCP tools are disabled in tools config")
