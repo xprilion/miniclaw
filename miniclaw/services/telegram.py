@@ -761,6 +761,8 @@ class TelegramService:
                         "stage": "working",
                         "last_sent_at": 0.0,
                         "initial_ack_sent": False,  # Track if we've sent initial ack
+                        "update_count": 0,  # Track number of progress updates sent
+                        "tool_history": [],  # Track tools that have been used
                     }
                     progress_done = threading.Event()
                     typing_done = threading.Event()
@@ -792,23 +794,99 @@ class TelegramService:
                                 return
                             progress_state["last_sent_at"] = now
                             elapsed = int(now - processing_started_at)
-                            try:
-                                self._send_message(
-                                    token,
-                                    chat_id,
-                                    f"MiniClaw update {elapsed}s: {text_message}",
-                                )
-                            except Exception as exc:
-                                self._event_log.add(
-                                    "telegram.progress.error",
-                                    "Failed to send progress update",
-                                    {
-                                        "chat_id": str(chat_id),
-                                        "error": f"{exc.__class__.__name__}: {exc}",
-                                    },
-                                )
+                            # Make progress updates more human-like
+                            if elapsed >= 10:  # Only send updates after 10 seconds
+                                # Limit total progress updates to avoid spam (max 3 updates)
+                                update_count = progress_state.get("update_count", 0)
+                                if update_count < 3:
+                                    # More descriptive messages that explain what's actually happening
+                                    descriptive_updates = {
+                                        "analyze": "Analyzing your question to understand what you need...",
+                                        "plugins": "Looking through relevant skills and knowledge...",
+                                        "model_call": "Thinking through your request carefully...",
+                                        "tool_call": "Looking up specific information to answer your question...",
+                                        "finalize": "Putting together the final response...",
+                                        "final": "Finishing up...",
+                                    }
+
+                                    # Handle dynamic messages like "model Qwen/Qwen3-235B-A22B-Thinking-2507"
+                                    human_message = text_message
+                                    if text_message.startswith("model "):
+                                        model_name = text_message[6:]  # Remove "model " prefix
+                                        if "thinking" in model_name.lower():
+                                            human_message = "Thinking through your question..."
+                                        elif "gpt" in model_name.lower():
+                                            human_message = "Consulting the GPT model..."
+                                        elif "qwen" in model_name.lower():
+                                            human_message = "Consulting the Qwen model..."
+                                        else:
+                                            human_message = "Thinking through your question..."
+                                    elif text_message.startswith("tool "):
+                                        tool_name = text_message[5:]  # Remove "tool " prefix
+                                        # Track tool usage for cumulative updates
+                                        if tool_name not in progress_state["tool_history"]:
+                                            progress_state["tool_history"].append(tool_name)
+
+                                        # More specific tool descriptions with "why" context
+                                        if "search" in tool_name.lower() or "web" in tool_name.lower():
+                                            human_message = "Searching the web for current information..."
+                                        elif "file" in tool_name.lower() or "filesystem" in tool_name.lower():
+                                            human_message = "Looking through files and documents..."
+                                        elif "memory" in tool_name.lower():
+                                            human_message = "Checking stored knowledge and context..."
+                                        elif "browser" in tool_name.lower():
+                                            human_message = "Browsing the web to find what you need..."
+                                        elif "shell" in tool_name.lower() or "command" in tool_name.lower():
+                                            human_message = "Running commands to get the information..."
+                                        elif "network" in tool_name.lower():
+                                            human_message = "Making network requests to fetch data..."
+                                        elif "telegram" in tool_name.lower():
+                                            human_message = "Checking Telegram-related information..."
+                                        elif "whatsapp" in tool_name.lower():
+                                            human_message = "Checking WhatsApp-related information..."
+                                        elif "email" in tool_name.lower():
+                                            human_message = "Checking email-related information..."
+                                        elif "calendar" in tool_name.lower() or "date" in tool_name.lower():
+                                            human_message = "Checking calendar and date information..."
+                                        elif "news" in tool_name.lower():
+                                            human_message = "Looking for recent news updates..."
+                                        else:
+                                            # Generic but still informative
+                                            human_message = f"Looking up information using {tool_name}..."
+
+                                        # If multiple tools have been used, provide context
+                                        if len(progress_state["tool_history"]) > 1:
+                                            # For the last few updates, provide a summary
+                                            if update_count >= 2:  # On third update and beyond
+                                                tool_count = len(progress_state["tool_history"])
+                                                human_message = (
+                                                    f"Still working... Used {tool_count} different tools so far "
+                                                    f"to find the best answer for you."
+                                                )
+                                    else:
+                                        human_message = descriptive_updates.get(
+                                            text_message, "Working on your request..."
+                                        )
+
+                                    try:
+                                        self._send_message(
+                                            token,
+                                            chat_id,
+                                            human_message,
+                                        )
+                                        progress_state["update_count"] = update_count + 1
+                                    except Exception as exc:
+                                        self._event_log.add(
+                                            "telegram.progress.error",
+                                            "Failed to send progress update",
+                                            {
+                                                "chat_id": str(chat_id),
+                                                "error": f"{exc.__class__.__name__}: {exc}",
+                                            },
+                                        )
 
                     def on_status(stage_message: str) -> None:
+                        # Store the stage message for progress updates
                         compact = str(stage_message or "").strip() or "working"
                         progress_state["stage"] = compact
                         send_progress(compact)

@@ -64,7 +64,7 @@ class AppState:
         self.memory = MemoryStore(MEMORY_DIR, self.config_store, self.event_log)
         self.mcp = MCPServerManager(self.config_store, self.event_log)
         self.tools = ToolRunner(
-            self.config_store, self.event_log, self.mcp, self.security
+            self.config_store, self.event_log, self.mcp, self.security, app_state=self
         )
         self.model_client = ModelProviderClient(self.event_log)
         self.agent = MiniClawAgent(

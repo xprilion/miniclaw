@@ -1,4 +1,4 @@
-"""Agent tools: shell, filesystem, fetch, browser, MCP."""
+"""Agent tools: shell, filesystem, fetch, browser, MCP, search, jobs."""
 from __future__ import annotations
 
 import copy
@@ -6,7 +6,10 @@ import subprocess
 import time
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.app_state import AppState
 
 from ..core.config import ConfigStore
 from ..core.events import EventLog
@@ -14,18 +17,25 @@ from ..services.mcp import MCPServerManager
 from ..core.parser import HTMLTextExtractor
 from ..security.security import SandboxManager
 from ..core.util import extract_json_object, truncate_text
+from .brave_search import BraveSearchClient
 
 
 class ToolRunner:
-    """Agent tools: shell, filesystem, fetch, browser, MCP."""
+    """Agent tools: shell, filesystem, fetch, browser, MCP, search, jobs."""
 
     def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager,
-                 security_managers: Optional[Dict[str, Any]] = None) -> None:
+                 security_managers: Optional[Dict[str, Any]] = None, app_state: Optional['AppState'] = None) -> None:
         self._config_store = config_store
         self._event_log = event_log
         self._mcp = mcp
-        self._security = security_managers or {}
+        self._security_managers = security_managers or {}
+        self._app_state = app_state
         self._sandbox = SandboxManager(config_store, event_log)
+        self._brave_search_client: Optional[BraveSearchClient] = None
+        # Initialize source tracking attributes
+        self._current_source: Optional[str] = None
+        self._current_meta: Dict[str, Any] = {}
+        self._current_chat_id: Optional[str] = None
         self._tool_defs: List[Dict[str, Any]] = [
             {
                 "name": "run_command",
@@ -56,6 +66,59 @@ class ToolRunner:
                 "name": "browser_extract",
                 "description": "Fetch webpage and extract title, text, and links (headless-lite).",
                 "args_schema": {"url": "string", "timeout_seconds": "int(optional)"},
+            },
+            {
+                "name": "brave_search",
+                "description": "Search the web using Brave Search API for current information.",
+                "args_schema": {
+                    "query": "string",
+                    "count": "int(optional, default=5)",
+                    "country": "string(optional, default='us')",
+                    "search_lang": "string(optional, default='en')"
+                },
+            },
+            {
+                "name": "jobs_create",
+                "description": (
+                    "Create or update a scheduled job that runs periodically. To stop/disable a job, "
+                    "set enabled=false rather than deleting it."
+                ),
+                "args_schema": {
+                    "id": "string",
+                    "name": "string",
+                    "prompt": "string",
+                    "interval_seconds": "int(optional, default=300)",
+                    "enabled": "boolean(optional, default=true)",
+                    "send_to_telegram_chat_id": "string(optional)"
+                },
+            },
+            {
+                "name": "jobs_list",
+                "description": "List all scheduled jobs.",
+                "args_schema": {},
+            },
+            {
+                "name": "jobs_delete",
+                "description": (
+                    "Delete a scheduled job by ID. Prefer disabling jobs (set enabled=false in jobs_create) "
+                    "rather than deleting to preserve configuration."
+                ),
+                "args_schema": {"id": "string"},
+            },
+            {
+                "name": "jobs_toggle",
+                "description": (
+                    "Toggle a job between enabled and disabled states. Preferred way to temporarily "
+                    "stop/start jobs."
+                ),
+                "args_schema": {
+                    "id": "string"
+                },
+            },
+            {
+                "name": "jobs_run",
+                "description": "Manually trigger a job to run immediately.",
+                "args_schema": {"id": "string"},
             },
             {
                 "name": "mcp_list_servers",
@@ -101,23 +164,36 @@ class ToolRunner:
 
     def catalog(self, include_mcp_details: bool = False) -> Dict[str, Any]:
         cfg = self._cfg()
-        tools: List[Dict[str, Any]] = []
-        for item in self._tool_defs:
-            name = str(item.get("name") or "")
-            if name.startswith("mcp_") and not self._allow("allow_mcp", True):
-                continue
-            if name in {"run_command"} and not self._allow("allow_shell", True):
-                continue
-            if name in {"list_dir", "read_file", "write_file"} and not self._allow("allow_filesystem", True):
-                continue
-            if name in {"fetch_url"} and not self._allow("allow_network", True):
-                continue
-            if name in {"browser_extract"} and not self._allow("allow_browser", True):
-                continue
-            tools.append(copy.deepcopy(item))
+        enabled = bool(cfg.get("enabled", True))
+
+        # If tools are disabled globally, return empty tools list
+        if not enabled:
+            tools = []
+        else:
+            tools: List[Dict[str, Any]] = []
+            for item in self._tool_defs:
+                name = str(item.get("name") or "")
+                if name.startswith("mcp_") and not self._allow("allow_mcp", True):
+                    continue
+                if name in {"run_command"} and not self._allow("allow_shell", True):
+                    continue
+                if name in {"list_dir", "read_file", "write_file"} and not self._allow("allow_filesystem", True):
+                    continue
+                # Network-dependent tools
+                if name in {"fetch_url", "brave_search"} and not self._allow("allow_network", True):
+                    continue
+                # Jobs tools depend on network access and app_state
+                if name.startswith("jobs_"):
+                    if not self._allow("allow_network", True):
+                        continue
+                    if self._app_state is None:
+                        continue
+                if name in {"browser_extract"} and not self._allow("allow_browser", True):
+                    continue
+                tools.append(copy.deepcopy(item))
 
         payload: Dict[str, Any] = {
-            "enabled": bool(cfg.get("enabled", True)),
+            "enabled": enabled,
             "max_steps": max(0, int(cfg.get("max_steps") or 0)),
             "tools": tools,
         }
@@ -458,6 +534,253 @@ class ToolRunner:
             "link_count": len(links),
         }
 
+    def _init_brave_search_client(self) -> BraveSearchClient:
+        """Initialize Brave Search client with API key from config."""
+        if self._brave_search_client is not None:
+            return self._brave_search_client
+
+        config = self._cfg()
+        api_key = config.get("brave_search", {}).get("api_key")
+        if not api_key:
+            raise PermissionError("Brave Search API key not configured in tools config")
+
+        self._brave_search_client = BraveSearchClient(api_key)
+        return self._brave_search_client
+
+    def _brave_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Perform web search using Brave Search API.
+
+        Args:
+            arguments: Tool arguments containing query and optional parameters
+
+        Returns:
+            Dictionary with search results
+        """
+        # Validate arguments
+        query = arguments.get("query")
+        if not query:
+            raise ValueError("Search query is required")
+
+        # Get optional parameters with defaults
+        count = arguments.get("count", 5)
+        country = arguments.get("country", "us")
+        search_lang = arguments.get("search_lang", "en")
+
+        # Initialize Brave Search client
+        try:
+            client = self._init_brave_search_client()
+        except PermissionError as e:
+            raise PermissionError(f"Brave Search is not available: {str(e)}")
+
+        # Perform search
+        try:
+            search_results = client.search(
+                query=query,
+                count=count,
+                country=country,
+                search_lang=search_lang
+            )
+
+            # Format results
+            formatted_results = client.format_results(search_results)
+
+            return {
+                "results": formatted_results,
+                "total_results": len(formatted_results),
+                "query": query
+            }
+        except Exception as e:
+            raise Exception(f"Brave Search failed: {str(e)}")
+
+    def _jobs_create(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create or update a scheduled job.
+
+        Args:
+            arguments: Tool arguments for job creation
+
+        Returns:
+            Dictionary with job creation result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+
+        # Validate required arguments
+        job_id = str(arguments.get("id", "")).strip()
+        name = str(arguments.get("name", "")).strip()
+        prompt = str(arguments.get("prompt", "")).strip()
+
+        if not job_id:
+            raise ValueError("Job ID is required")
+        if not name:
+            raise ValueError("Job name is required")
+        if not prompt:
+            raise ValueError("Job prompt is required")
+
+        # Get optional parameters with defaults
+        interval_seconds = int(arguments.get("interval_seconds", 300))
+        enabled = bool(arguments.get("enabled", True))
+        send_to_telegram_chat_id = str(arguments.get("send_to_telegram_chat_id", "")).strip()
+
+        # If no chat ID was provided but we're in a Telegram context,
+        # automatically set it to the requesting chat ID
+        if not send_to_telegram_chat_id and hasattr(self, '_current_chat_id'):
+            send_to_telegram_chat_id = self._current_chat_id
+
+        # Create job payload
+        job_payload = {
+            "id": job_id,
+            "name": name,
+            "prompt": prompt,
+            "interval_seconds": interval_seconds,
+            "enabled": enabled,
+            "send_to_telegram_chat_id": send_to_telegram_chat_id,
+        }
+
+        try:
+            # Use the app_state's upsert_job method
+            created_job = self._app_state.upsert_job(job_payload)
+            return {
+                "success": True,
+                "message": f"Job '{name}' ({job_id}) created/updated successfully",
+                "job": created_job
+            }
+        except Exception as e:
+            raise Exception(f"Failed to create job: {str(e)}")
+
+    def _jobs_list(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List all scheduled jobs.
+
+        Args:
+            arguments: Tool arguments (empty for this tool)
+
+        Returns:
+            Dictionary with list of jobs
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+
+        try:
+            # Use the app_state's job_store to list jobs
+            jobs = self._app_state.job_store.list()
+            return {
+                "success": True,
+                "jobs": jobs,
+                "count": len(jobs)
+            }
+        except Exception as e:
+            raise Exception(f"Failed to list jobs: {str(e)}")
+
+    def _jobs_delete(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Delete a scheduled job.
+
+        Args:
+            arguments: Tool arguments containing job ID
+
+        Returns:
+            Dictionary with deletion result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+
+        # Validate required argument
+        job_id = str(arguments.get("id", "")).strip()
+        if not job_id:
+            raise ValueError("Job ID is required")
+
+        try:
+            # Use the app_state's delete_job method
+            self._app_state.delete_job(job_id)
+            return {
+                "success": True,
+                "message": f"Job '{job_id}' deleted successfully"
+            }
+        except Exception as e:
+            raise Exception(f"Failed to delete job: {str(e)}")
+
+    def _jobs_toggle(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Toggle a job between enabled and disabled states.
+
+        Args:
+            arguments: Tool arguments containing job ID
+
+        Returns:
+            Dictionary with toggle result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+
+        # Validate required argument
+        job_id = str(arguments.get("id", "")).strip()
+        if not job_id:
+            raise ValueError("Job ID is required")
+
+        try:
+            # Get the current job to see its state (using efficient get method)
+            current_job = self._app_state.job_store.get(job_id)
+
+            if current_job is None:
+                raise ValueError(f"Job '{job_id}' not found")
+
+            # Toggle the enabled state
+            new_enabled_state = not bool(current_job.get("enabled", True))
+
+            # Update the job with the new state
+            job_payload = {
+                "id": job_id,
+                "name": current_job.get("name", job_id),
+                "prompt": current_job.get("prompt", ""),
+                "interval_seconds": current_job.get("interval_seconds", 300),
+                "enabled": new_enabled_state,
+                "send_to_telegram_chat_id": current_job.get("send_to_telegram_chat_id", ""),
+            }
+
+            # Use the app_state's upsert_job method
+            updated_job = self._app_state.upsert_job(job_payload)
+            state_text = "enabled" if new_enabled_state else "disabled"
+
+            return {
+                "success": True,
+                "message": f"Job '{job_id}' has been {state_text}",
+                "job": updated_job,
+                "previous_state": "enabled" if not new_enabled_state else "disabled",
+                "new_state": state_text
+            }
+        except Exception as e:
+            raise Exception(f"Failed to toggle job: {str(e)}")
+
+    def _jobs_run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Manually trigger a job to run.
+
+        Args:
+            arguments: Tool arguments containing job ID
+
+        Returns:
+            Dictionary with run result
+        """
+        if self._app_state is None:
+            raise PermissionError("Job management not available - app_state not provided")
+
+        # Validate required argument
+        job_id = str(arguments.get("id", "")).strip()
+        if not job_id:
+            raise ValueError("Job ID is required")
+
+        try:
+            # Use the app_state's job_service to trigger the job
+            result = self._app_state.job_service.trigger_now(job_id)
+            return {
+                "success": True,
+                "result": result
+            }
+        except Exception as e:
+            raise Exception(f"Failed to run job: {str(e)}")
+
     def run(self, tool_name: str, arguments: Optional[Dict[str, Any]],
             trace: Optional[Dict[str, Any]] = None, user_id: str = "default") -> Dict[str, Any]:
         name = str(tool_name or "").strip()
@@ -465,15 +788,32 @@ class ToolRunner:
         trace_details = trace if isinstance(trace, dict) else {}
         started = time.time()
 
+        # Store source information for tools that need it (e.g., jobs_create)
+        source = trace_details.get("source", "unknown")
+        self._current_source = source
+
+        # Safely handle meta data to prevent runtime errors
+        meta = trace_details.get("meta") or {}
+        if not isinstance(meta, dict):
+            meta = {}
+        self._current_meta = meta
+
+        # Safely extract chat_id with proper type handling
+        if source == "telegram":
+            chat_id = self._current_meta.get("chat_id")
+            self._current_chat_id = str(chat_id) if chat_id is not None else None
+        else:
+            self._current_chat_id = None
+
         # Check permissions before executing
-        if hasattr(self, '_security') and self._security.get("permissions"):
-            permissions_manager = self._security["permissions"]
+        if hasattr(self, '_security_managers') and self._security_managers.get("permissions"):
+            permissions_manager = self._security_managers["permissions"]
             if not permissions_manager.check_tool_permission(name, user_id=user_id, context=args):
                 raise PermissionError(f"Permission denied for tool: {name}")
 
         # Apply rate limiting
-        if hasattr(self, '_security') and self._security.get("rate_limiter"):
-            rate_limiter = self._security["rate_limiter"]
+        if hasattr(self, '_security_managers') and self._security_managers.get("rate_limiter"):
+            rate_limiter = self._security_managers["rate_limiter"]
             # Extract IP from trace if available
             ip_address = trace_details.get("client_ip", "") if trace_details else ""
             if not rate_limiter.check_rate_limit(user_id=user_id, ip_address=ip_address):
@@ -496,7 +836,33 @@ class ToolRunner:
             elif name == "fetch_url":
                 result = self._fetch_url(args)
             elif name == "browser_extract":
+                if not self._allow("allow_browser", True):
+                    raise PermissionError("browser_extract is disabled in tools config")
                 result = self._browser_extract(args)
+            elif name == "brave_search":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("brave_search is disabled in tools config")
+                result = self._brave_search(args)
+            elif name == "jobs_create":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_create is disabled in tools config")
+                result = self._jobs_create(args)
+            elif name == "jobs_list":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_list is disabled in tools config")
+                result = self._jobs_list(args)
+            elif name == "jobs_delete":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_delete is disabled in tools config")
+                result = self._jobs_delete(args)
+            elif name == "jobs_toggle":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_toggle is disabled in tools config")
+                result = self._jobs_toggle(args)
+            elif name == "jobs_run":
+                if not self._allow("allow_network", True):
+                    raise PermissionError("jobs_run is disabled in tools config")
+                result = self._jobs_run(args)
             elif name == "mcp_list_servers":
                 if not self._allow("allow_mcp", True):
                     raise PermissionError("MCP tools are disabled in tools config")
@@ -523,8 +889,8 @@ class ToolRunner:
             }
 
             # Apply content filtering to results
-            if hasattr(self, '_security') and self._security.get("content_filter"):
-                content_filter = self._security["content_filter"]
+            if hasattr(self, '_security_managers') and self._security_managers.get("content_filter"):
+                content_filter = self._security_managers["content_filter"]
                 # Filter sensitive information from result if it contains text
                 if isinstance(result, dict):
                     for key, value in result.items():
