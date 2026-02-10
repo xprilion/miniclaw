@@ -6,7 +6,10 @@ import subprocess
 import time
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.app_state import AppState
 
 from ..core.config import ConfigStore
 from ..core.events import EventLog
@@ -14,7 +17,6 @@ from ..services.mcp import MCPServerManager
 from ..core.parser import HTMLTextExtractor
 from ..security.security import SandboxManager
 from ..core.util import extract_json_object, truncate_text
-from ..core.app_state import AppState
 from .brave_search import BraveSearchClient
 
 
@@ -22,7 +24,7 @@ class ToolRunner:
     """Agent tools: shell, filesystem, fetch, browser, MCP, search, jobs."""
 
     def __init__(self, config_store: ConfigStore, event_log: EventLog, mcp: MCPServerManager,
-                 security_managers: Optional[Dict[str, Any]] = None, app_state: Optional[AppState] = None) -> None:
+                 security_managers: Optional[Dict[str, Any]] = None, app_state: Optional['AppState'] = None) -> None:
         self._config_store = config_store
         self._event_log = event_log
         self._mcp = mcp
