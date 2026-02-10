@@ -798,25 +798,40 @@ class TelegramService:
                                 # Limit total progress updates to avoid spam (max 3 updates)
                                 update_count = progress_state.get("update_count", 0)
                                 if update_count < 3:
-                                    natural_updates = {
-                                        "analyze": "Analyzing your request...",
-                                        "plugins": "Checking relevant skills...",
-                                        "model": "Thinking...",
-                                        "model_call": "Working on it...",
-                                        "tool": "Looking into this...",  # Handle tool calls with tool name
-                                        "tool_call": "Looking into this...",
-                                        "finalize": "Almost done...",
-                                        "final": "Wrapping up...",
+                                    # More descriptive messages that explain what's actually happening
+                                    descriptive_updates = {
+                                        "analyze": "Analyzing your question to understand what you need...",
+                                        "plugins": "Looking through relevant skills and knowledge...",
+                                        "model_call": "Thinking through your request carefully...",
+                                        "tool_call": "Looking up specific information to answer your question...",
+                                        "finalize": "Putting together the final response...",
+                                        "final": "Finishing up...",
                                     }
                                     
-                                    # Handle dynamic tool names like "tool gpt-oss:20b"
+                                    # Handle dynamic messages like "model Qwen/Qwen3-235B-A22B-Thinking-2507"
                                     human_message = text_message
                                     if text_message.startswith("model "):
-                                        human_message = "Thinking..."
+                                        model_name = text_message[6:]  # Remove "model " prefix
+                                        if "thinking" in model_name.lower():
+                                            human_message = "Thinking through your question..."
+                                        elif "gpt" in model_name.lower():
+                                            human_message = "Consulting the GPT model..."
+                                        elif "qwen" in model_name.lower():
+                                            human_message = "Consulting the Qwen model..."
+                                        else:
+                                            human_message = "Thinking through your question..."
                                     elif text_message.startswith("tool "):
-                                        human_message = "Looking into this..."
+                                        tool_name = text_message[5:]  # Remove "tool " prefix
+                                        if "search" in tool_name.lower() or "web" in tool_name.lower():
+                                            human_message = "Searching the web for current information..."
+                                        elif "file" in tool_name.lower():
+                                            human_message = "Looking through files and documents..."
+                                        elif "memory" in tool_name.lower():
+                                            human_message = "Checking stored knowledge and context..."
+                                        else:
+                                            human_message = "Looking up specific details..."
                                     else:
-                                        human_message = natural_updates.get(text_message, "Working...")
+                                        human_message = descriptive_updates.get(text_message, "Working on your request...")
                                     
                                     try:
                                         self._send_message(
@@ -836,6 +851,9 @@ class TelegramService:
                                 )
 
                     def on_status(stage_message: str) -> None:
+                        # Instead of just the stage name, we want more descriptive messages
+                        # But for now, we'll pass through the stage message and let send_progress handle it
+                        # The real descriptive information comes from the agent's "why" parameter
                         compact = str(stage_message or "").strip() or "working"
                         progress_state["stage"] = compact
                         send_progress(compact)
