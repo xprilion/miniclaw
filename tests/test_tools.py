@@ -187,24 +187,24 @@ class TestToolRunner(unittest.TestCase):
         """Test resolving work directory with default path."""
         workdir = self.tool_runner._resolve_workdir()
         self.assertIsInstance(workdir, Path)
-        # Should resolve to the configured working directory
-        self.assertEqual(str(workdir), self.temp_dir)
+        # Should resolve to the configured working directory (handle path resolution differences)
+        self.assertEqual(workdir.resolve(), Path(self.temp_dir).resolve())
 
     def test_resolve_workdir_relative_path(self):
         """Test resolving work directory with relative path."""
         workdir = self.tool_runner._resolve_workdir("subdir")
         self.assertIsInstance(workdir, Path)
-        # Should resolve to base directory + relative path
+        # Should resolve to base directory + relative path (handle path resolution differences)
         expected = (Path(self.temp_dir) / "subdir").resolve()
-        self.assertEqual(workdir, expected)
+        self.assertEqual(workdir.resolve(), expected)
 
     def test_resolve_workdir_absolute_path(self):
         """Test resolving work directory with absolute path."""
         abs_path = "/tmp/test"
         workdir = self.tool_runner._resolve_workdir(abs_path)
         self.assertIsInstance(workdir, Path)
-        # Should resolve to the absolute path
-        self.assertEqual(str(workdir), abs_path)
+        # Should resolve to the absolute path (handle macOS /private resolution)
+        self.assertEqual(workdir.resolve(), Path(abs_path).resolve())
 
     def test_allow_feature_enabled(self):
         """Test allow method with feature enabled."""

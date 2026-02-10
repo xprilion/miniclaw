@@ -446,6 +446,22 @@ class ConfigStore:
                 2000, min(200000, int(tools_raw.get("output_char_limit") or 12000))
             ),
             "working_directory": str(tools_raw.get("working_directory") or BASE_DIR),
+            # Preserve additional tool configurations like permissions
+            "permissions": (
+                dict(tools_raw.get("permissions", {}))
+                if isinstance(tools_raw.get("permissions"), dict)
+                else {}
+            ),
+            "user_permissions": (
+                dict(tools_raw.get("user_permissions", {}))
+                if isinstance(tools_raw.get("user_permissions"), dict)
+                else {}
+            ),
+            "group_permissions": (
+                dict(tools_raw.get("group_permissions", {}))
+                if isinstance(tools_raw.get("group_permissions"), dict)
+                else {}
+            ),
         }
 
         mcp_raw = merged.get("mcp")
@@ -466,7 +482,9 @@ class ConfigStore:
             seen_mcp_ids.add(server_id)
             transport = str(item.get("transport") or "stdio").strip().lower()
             if transport not in {"stdio"}:
-                transport = "stdio"
+                # Don't silently convert unsupported transports to stdio
+                # This will cause the MCP manager to properly raise an error
+                pass  # Keep the original transport value
             args_raw = item.get("args") or []
             if not isinstance(args_raw, list):
                 args_raw = [args_raw]

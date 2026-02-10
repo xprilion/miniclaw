@@ -222,15 +222,17 @@ class TestCLIServiceManagement(unittest.TestCase):
         result = run_uninstall_service(MagicMock())
         self.assertEqual(result, 0)
 
+    @patch("pathlib.Path.unlink")
     @patch("pathlib.Path.exists")
     @patch("subprocess.run")
     @patch("platform.system")
     def test_run_uninstall_service_macos(
-        self, mock_platform, mock_subprocess, mock_exists
+        self, mock_platform, mock_subprocess, mock_exists, mock_unlink
     ):
         """Test uninstalling macOS service."""
         mock_platform.return_value = "Darwin"
         mock_exists.return_value = True  # Plist file exists
+        mock_unlink.return_value = None  # Mock successful file deletion
 
         # Mock subprocess calls to succeed
         mock_result = MagicMock()

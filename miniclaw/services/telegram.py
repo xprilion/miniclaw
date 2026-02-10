@@ -91,7 +91,13 @@ class TelegramService:
                     raise TelegramAPIError(method, response.status, detail)
                 return parsed
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
+            # Try to read the response body, but handle cases where it's not available
+            body = ""
+            try:
+                body = exc.read().decode("utf-8", errors="replace")
+            except Exception:
+                # If we can't read the body, that's okay - we'll work with what we have
+                pass
             parsed: Any
             try:
                 parsed = json.loads(body) if body.strip() else {}
@@ -108,6 +114,7 @@ class TelegramService:
                     "url": redacted,
                     "status": exc.code,
                     "body": parsed,
+                    "detail": detail,
                 },
             )
             if exc.code == 409:

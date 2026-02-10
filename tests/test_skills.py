@@ -35,7 +35,8 @@ class TestSkillRegistry(unittest.TestCase):
     def test_skill_path_valid(self):
         """Test _skill_path with valid skill ID."""
         result = self.skill_registry._skill_path("test-skill")
-        self.assertEqual(result, self.skills_dir / "test-skill.md")
+        # Compare resolved paths to handle macOS /private/var vs /var differences
+        self.assertEqual(result.resolve(), (self.skills_dir / "test-skill.md").resolve())
 
     def test_skill_path_empty_id(self):
         """Test _skill_path with empty skill ID."""

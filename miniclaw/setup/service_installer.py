@@ -258,15 +258,16 @@ def main():
         success = install_windows_service()
     else:
         print(f"Unsupported operating system: {os_type}")
-        return 1
+        sys.exit(1)
+        return  # This line will never be reached, but added for clarity
 
     if success:
         print("\nService installation files created successfully!")
         print("Follow the instructions above to complete the installation.")
-        return 0
+        sys.exit(0)
     else:
         print("\nFailed to create service installation files.")
-        return 1
+        sys.exit(1)
 
 
 if __name__ == "__main__":

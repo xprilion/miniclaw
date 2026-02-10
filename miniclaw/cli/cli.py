@@ -331,8 +331,10 @@ def run_uninstall_service(args: argparse.Namespace) -> int:
                                capture_output=True, check=False)
                 plist_path.unlink()
                 print(style.success("macOS service uninstalled"))
+                return 0
             else:
                 print(style.info("macOS service not found"))
+                return 0
 
         elif os_type == "windows":
             # Stop and delete service

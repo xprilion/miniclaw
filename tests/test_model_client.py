@@ -54,8 +54,12 @@ class TestModelProviderClient(unittest.TestCase):
             {"role": "user", "content": "Hello"},
         ]
         prompt = self.client._messages_to_generate_prompt(messages)
+        # Check that the prompt contains the non-empty message
         self.assertIn("Hello", prompt)
-        self.assertNotIn("USER:\n", prompt)  # Empty content should be skipped
+        # Check that empty content messages are skipped (only one USER section)
+        self.assertEqual(prompt.count("USER:"), 1)
+        # The empty message should not be included
+        self.assertNotIn("EMPTY", prompt)
 
     def test_request_json_get_success(self):
         """Test successful GET request."""
@@ -239,8 +243,11 @@ class TestModelProviderClient(unittest.TestCase):
             "model": "gpt-4o-mini",
         }
 
-        models = self.client.list_models(provider)
-        self.assertEqual(models, ["gpt-4o-mini"])
+        # Mock the _request_json method to avoid actual network calls
+        with patch.object(self.client, '_request_json') as mock_request:
+            mock_request.return_value = {"data": []}  # Empty response means no models found
+            models = self.client.list_models(provider)
+            self.assertEqual(models, ["gpt-4o-mini"])  # Should return the default model
 
     def test_list_models_openrouter_no_listing(self):
         """Test listing models from OpenRouter provider with no listing."""
@@ -356,7 +363,7 @@ class TestModelProviderClient(unittest.TestCase):
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
         # Mock the OpenAI client
-        with patch("openai.OpenAI") as mock_openai_class:
+        with patch("miniclaw.tools.model_client.OpenAI") as mock_openai_class:
             mock_client = Mock()
             mock_openai_class.return_value = mock_client
 
@@ -394,14 +401,23 @@ class TestModelProviderClient(unittest.TestCase):
         messages = [{"role": "user", "content": "Hello"}]
 
         # Mock the OpenAI client to raise an API error
-        with patch("openai.OpenAI") as mock_openai_class:
+        with patch("miniclaw.tools.model_client.OpenAI") as mock_openai_class:
             mock_client = Mock()
             mock_openai_class.return_value = mock_client
 
             import openai
+            import httpx
+            from unittest.mock import Mock as UMock
 
+            # Create a mock request object
+            mock_request = UMock(spec=httpx.Request)
+            mock_request.method = "POST"
+            mock_request.url = "http://localhost:8000/chat/completions"
+            
             mock_client.chat.completions.create.side_effect = openai.APIError(
-                "Test API error"
+                "Test API error",
+                request=mock_request,
+                body=None
             )
 
             with self.assertRaises(RuntimeError) as context:
