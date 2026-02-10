@@ -433,7 +433,7 @@ class ConfigStore:
             tools_raw = {}
         merged["tools"] = {
             "enabled": bool(tools_raw.get("enabled", True)),
-            "max_steps": max(0, min(12, int(tools_raw.get("max_steps") or 4))),
+            "max_steps": max(0, min(100, int(tools_raw.get("max_steps") or 4))),
             "allow_shell": bool(tools_raw.get("allow_shell", True)),
             "allow_filesystem": bool(tools_raw.get("allow_filesystem", True)),
             "allow_network": bool(tools_raw.get("allow_network", True)),
