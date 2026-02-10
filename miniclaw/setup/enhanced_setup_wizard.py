@@ -829,7 +829,7 @@ This wizard will guide you through setting up MiniClaw with:
                 ),
                 "max_history_messages": 12,
                 "enabled_skills": [],
-                "enabled_plugins": ["trace_tag"],
+                "enabled_plugins": ["trace_tag", "response_formatter"],
                 "skill_match_min_score": 2,
                 "seeded_default_skills": False,
             },

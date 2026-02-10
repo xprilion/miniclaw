@@ -1,0 +1,25 @@
+[Unit]
+Description=MiniClaw AI Agent
+After=network.target
+
+[Service]
+Type=simple
+User=xprilion
+Group=xprilion
+WorkingDirectory=/home/xprilion/.openclaw/workspace/miniclaw
+Environment=PATH=/home/xprilion/.openclaw/workspace/miniclaw/.venv/bin:/home/xprilion/.local/bin:/home/xprilion/.opencode/bin:/home/xprilion/.local/share/pnpm:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/xprilion/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+ExecStart=/home/xprilion/.openclaw/workspace/miniclaw/.venv/bin/miniclaw gateway
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/xprilion/.miniclaw
+
+[Install]
+WantedBy=multi-user.target
