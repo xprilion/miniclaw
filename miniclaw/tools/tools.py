@@ -32,6 +32,10 @@ class ToolRunner:
         self._app_state = app_state
         self._sandbox = SandboxManager(config_store, event_log)
         self._brave_search_client: Optional[BraveSearchClient] = None
+        # Initialize source tracking attributes
+        self._current_source: Optional[str] = None
+        self._current_meta: Dict[str, Any] = {}
+        self._current_chat_id: Optional[str] = None
         self._tool_defs: List[Dict[str, Any]] = [
             {
                 "name": "run_command",
@@ -590,6 +594,11 @@ class ToolRunner:
         enabled = bool(arguments.get("enabled", True))
         send_to_telegram_chat_id = str(arguments.get("send_to_telegram_chat_id", "")).strip()
         
+        # If no chat ID was provided but we're in a Telegram context, 
+        # automatically set it to the requesting chat ID
+        if not send_to_telegram_chat_id and hasattr(self, '_current_chat_id'):
+            send_to_telegram_chat_id = self._current_chat_id
+            
         # Create job payload
         job_payload = {
             "id": job_id,
@@ -697,6 +706,15 @@ class ToolRunner:
         args = arguments if isinstance(arguments, dict) else {}
         trace_details = trace if isinstance(trace, dict) else {}
         started = time.time()
+
+        # Store source information for tools that need it (e.g., jobs_create)
+        source = trace_details.get("source", "unknown")
+        self._current_source = source
+        self._current_meta = trace_details.get("meta", {})
+        if source == "telegram" and "chat_id" in self._current_meta:
+            self._current_chat_id = self._current_meta["chat_id"]
+        else:
+            self._current_chat_id = None
 
         # Check permissions before executing
         if hasattr(self, '_security') and self._security.get("permissions"):
