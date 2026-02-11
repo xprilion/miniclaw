@@ -90,6 +90,12 @@ class MiniClawAgent:
         with self._chat_lock:
             return list(self._history)[-safe_limit:]
 
+    def clear_history(self) -> None:
+        """Clear the conversation history for this agent."""
+        with self._chat_lock:
+            self._history.clear()
+        LOGGER.info("Agent conversation history cleared")
+
     def chat(self, user_message: str, source: str = "web", meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.chat_with_updates(user_message=user_message, source=source, meta=meta, status_callback=None)
 

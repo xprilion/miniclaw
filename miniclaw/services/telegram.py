@@ -338,6 +338,14 @@ class TelegramService:
         first = raw.split(maxsplit=1)[0].lower()
         return first == "/pair" or first.startswith("/pair@")
 
+    def _is_new_session_command(self, text: str) -> bool:
+        """Check if the text is a new session command (/new or /new@botname)."""
+        raw = str(text or "").strip()
+        if not raw.startswith("/"):
+            return False
+        first = raw.split(maxsplit=1)[0].lower()
+        return first == "/new" or first.startswith("/new@")
+
     def _extract_pair_code(self, text: str) -> str:
         parts = str(text or "").strip().split(maxsplit=1)
         if len(parts) < 2:
@@ -452,6 +460,32 @@ class TelegramService:
                 chat_id_text,
             )
         return True
+
+    def _handle_new_session_command(self, token: str, chat_id: Any, text: str) -> bool:
+        """Handle the /new command to start a new conversation session."""
+        if not self._is_new_session_command(text):
+            return False
+
+        try:
+            # Clear the conversation history for this agent
+            self._agent.clear_history()
+            
+            # Send confirmation message
+            reply_text = "Starting a new conversation session. How can I help you?"
+            self._send_message(token, chat_id, reply_text)
+            
+            # Log the event
+            self._event_log.add(
+                "telegram.new_session",
+                "Started new conversation session",
+                {"chat_id": str(chat_id)},
+            )
+            
+            return True
+        except Exception as e:
+            LOGGER.error("Error handling /new command: %s", str(e), exc_info=True)
+            self._send_message(token, chat_id, "Sorry, I couldn't start a new session. Please try again.")
+            return True
 
     def _ensure_polling_mode(self, token: str) -> None:
         try:
@@ -686,6 +720,9 @@ class TelegramService:
                         )
                         continue
                     if self._handle_pair_command(token, chat_id, from_data, text):
+                        continue
+
+                    if self._handle_new_session_command(token, chat_id, text):
                         continue
 
                     if not self._chat_allowed(chat_id, config.get("allowed_chat_ids") or [], pairing_required):
