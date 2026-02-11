@@ -69,6 +69,19 @@ def _make_conversational(response: str) -> str:
     # Remove overly technical language
     formatted = response
 
+    # Handle greeting responses specifically
+    greeting_patterns = [
+        r'^\s*Hi\.\s*What\s+do\s+you\s+need\??\s*$',
+        r'^\s*Hello\.\s*What\s+do\s+you\s+need\??\s*$',
+        r'^\s*Hi\s*$',
+        r'^\s*Hello\s*$',
+        r'^\s*Hey\s*$',
+    ]
+    
+    is_rude_greeting = any(re.match(pattern, formatted, re.IGNORECASE) for pattern in greeting_patterns)
+    if is_rude_greeting:
+        return "Hello! I'm here to help you. What can I assist you with today?"
+
     # Replace technical phrases with more natural ones
     replacements = {
         r'I have completed the following actions?:': 'I looked into this for you:',
