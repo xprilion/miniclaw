@@ -29,6 +29,14 @@ Configuration and data are stored in `~/.miniclaw`, while this repository contai
 - Interactive setup wizard
 - Modern web interface with dark/light mode
 - Multiple AI provider support (Ollama, OpenAI, OpenRouter, etc.)
+- Advanced chain-of-thought reasoning for complex problem solving
+
+### Advanced Reasoning Capabilities
+- Systematic problem analysis and breakdown
+- Multi-approach exploration and evaluation
+- Structured decision-making framework
+- Detailed action planning with risk assessment
+- Clear communication of reasoning processes
 
 ## Installation
 
