@@ -17,6 +17,10 @@ from ..plugins.plugins import PluginRegistry
 from ..tools.skills import SkillRegistry
 from ..tools.tools import ToolRunner
 from ..core.util import LOGGER, truncate_text, utc_now
+from ..core.reasoning import ReasoningEngine
+from ..core.decisions import DecisionFramework
+from ..core.planning import ActionPlanner
+from ..core.communication import CommunicationManager
 
 
 class MiniClawAgent:
@@ -43,6 +47,12 @@ class MiniClawAgent:
         self._security = security_managers or {}
         self._history: deque[Dict[str, Any]] = deque(maxlen=400)
         self._chat_lock = threading.Lock()
+
+        # Initialize chain-of-thought enhancement components
+        self._reasoning_engine = ReasoningEngine(event_log)
+        self._decision_framework = DecisionFramework(event_log)
+        self._action_planner = ActionPlanner(event_log)
+        self._communication_manager = CommunicationManager(event_log)
 
         # Set the skill registry reference in the advanced file selection plugin if it exists
         try:
@@ -231,6 +241,11 @@ class MiniClawAgent:
                 messages.extend(plugin_messages)
 
                 messages.append({"role": "user", "content": content})
+
+                # Apply chain-of-thought reasoning for complex queries
+                cot_result = self._apply_chain_of_thought_reasoning(content, selected_skills, plugin_context)
+                if cot_result and "explanation" in cot_result:
+                    messages.append({"role": "system", "content": f"[Reasoning Process]\n{cot_result['explanation']}"})
 
                 self._event_log.add(
                     "agent.plan",
@@ -622,3 +637,144 @@ class MiniClawAgent:
                 )
                 LOGGER.exception("Agent error source=%s", source)
                 raise
+
+    def _apply_chain_of_thought_reasoning(self, query: str, selected_skills: List[Dict[str, Any]], 
+                                        context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Apply chain-of-thought reasoning to complex queries."""
+        # Determine if reasoning should be engaged
+        if not self._reasoning_engine.should_engage_reasoning(query, selected_skills):
+            return None
+        
+        try:
+            self._event_log.add(
+                "agent.cot.engaged",
+                "Engaging chain-of-thought reasoning",
+                {"query_length": len(query)}
+            )
+            
+            # Build comprehensive context for reasoning
+            reasoning_context = {
+                "query": query,
+                "selected_skills": selected_skills,
+                "agent_context": context
+            }
+            
+            # 1. Problem Analysis
+            analysis = self._reasoning_engine.analyze_problem(query, reasoning_context)
+            
+            # 2. Approach Exploration
+            approaches = self._reasoning_engine.explore_approaches(analysis)
+            
+            # 3. Decision Making
+            decision_criteria = [
+                {"name": "effectiveness", "weight": 0.3},
+                {"name": "effort", "weight": 0.2},
+                {"name": "risk", "weight": 0.2},
+                {"name": "time", "weight": 0.15},
+                {"name": "resources", "weight": 0.15}
+            ]
+            
+            # Evaluate approaches using the decision framework
+            evaluated_approaches = []
+            for approach in approaches:
+                # Add evaluation scores for each criterion
+                evaluation = {
+                    "effectiveness": self._evaluate_effectiveness(approach),
+                    "effort": self._evaluate_effort(approach),
+                    "risk": self._evaluate_risk(approach),
+                    "time": self._evaluate_time(approach),
+                    "resources": self._evaluate_resources(approach)
+                }
+                approach["evaluation"] = evaluation
+                evaluated_approaches.append(approach)
+            
+            decision_result = self._decision_framework.make_decision_with_criteria(
+                evaluated_approaches, decision_criteria
+            )
+            
+            # 4. Action Planning
+            selected_approach = decision_result.get("selected_option", {})
+            if selected_approach:
+                execution_plan = self._action_planner.create_plan(
+                    selected_approach.get("name", "Execute approach"), 
+                    {"approach": selected_approach, "context": reasoning_context}
+                )
+            else:
+                execution_plan = {}
+            
+            # 5. Format comprehensive explanation
+            cot_result = {
+                "analysis": analysis,
+                "approaches": evaluated_approaches,
+                "decision": decision_result,
+                "plan": execution_plan
+            }
+            
+            explanation = self._communication_manager.create_comprehensive_explanation(cot_result)
+            
+            self._event_log.add(
+                "agent.cot.completed",
+                "Chain-of-thought reasoning completed",
+                {
+                    "approaches_considered": len(approaches),
+                    "selected_approach": selected_approach.get("name") if selected_approach else None
+                }
+            )
+            
+            return {
+                "reasoning_result": cot_result,
+                "explanation": explanation
+            }
+            
+        except Exception as e:
+            self._event_log.add(
+                "agent.cot.error",
+                "Error in chain-of-thought reasoning",
+                {"error": str(e)}
+            )
+            # Continue without reasoning if there's an error
+            return None
+    
+    def _evaluate_effectiveness(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the effectiveness of an approach (0.0 to 1.0)."""
+        # Simple heuristic based on approach characteristics
+        pros_count = len(approach.get("pros", []))
+        cons_count = len(approach.get("cons", []))
+        
+        # More pros and fewer cons indicate higher effectiveness
+        if pros_count + cons_count == 0:
+            return 0.5
+        
+        return min(1.0, pros_count / (pros_count + cons_count))
+    
+    def _evaluate_effort(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the effort required for an approach (0.0 to 1.0, inverted)."""
+        effort = approach.get("effort", "Medium")
+        if effort == "Low":
+            return 0.5  # Low effort is good (but not perfect) - convert to score
+        elif effort == "Medium":
+            return 0.7
+        elif effort == "High":
+            return 0.9
+        return 0.7  # Default medium
+    
+    def _evaluate_risk(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the risk of an approach (0.0 to 1.0, inverted)."""
+        risk = approach.get("risk", "Medium")
+        if risk == "Low":
+            return 0.5
+        elif risk == "Medium":
+            return 0.7
+        elif risk == "High":
+            return 0.9
+        return 0.7  # Default medium
+    
+    def _evaluate_time(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the time required for an approach (0.0 to 1.0, inverted)."""
+        # For now, use the same logic as effort
+        return self._evaluate_effort(approach)
+    
+    def _evaluate_resources(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the resources required for an approach (0.0 to 1.0, inverted)."""
+        # For now, use a default value
+        return 0.6
