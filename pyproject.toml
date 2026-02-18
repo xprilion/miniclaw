@@ -14,6 +14,7 @@ keywords = ["ai", "assistant", "ollama", "telegram", "agent", "cli"]
 dependencies = [
   "litellm>=1.0.0",
   "celery>=5.0.0",
+  "pytz>=2024.1",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

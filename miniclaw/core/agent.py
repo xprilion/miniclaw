@@ -174,11 +174,26 @@ class MiniClawAgent:
                     or "You are MiniClaw."
                 ).strip()
                 
-                # Update the prompt with current date/time
+                # Update the prompt with current date/time based on configured timezone
                 from datetime import datetime, timezone
-                current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-                if "{current_datetime}" in default_prompt:
-                    default_prompt = default_prompt.format(current_datetime=current_datetime)
+                import pytz
+                
+                # Handle timezone configuration
+                tz_name = agent_cfg.get("timezone", "UTC")
+                try:
+                    tz = pytz.timezone(tz_name)
+                    current_datetime = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+                    timezone_display = tz_name
+                except:
+                    # Fallback to UTC if timezone is invalid
+                    current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                    timezone_display = "UTC"
+                
+                if "{current_datetime}" in default_prompt or "{timezone}" in default_prompt:
+                    default_prompt = default_prompt.format(
+                        current_datetime=current_datetime,
+                        timezone=timezone_display
+                    )
                 
                 provider_prompt_override = str(provider.get("system_prompt_override") or "").strip()
                 effective_system_prompt = provider_prompt_override or default_prompt
