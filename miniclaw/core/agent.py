@@ -173,6 +173,13 @@ class MiniClawAgent:
                     or agent_cfg.get("system_prompt")
                     or "You are MiniClaw."
                 ).strip()
+                
+                # Update the prompt with current date/time
+                from datetime import datetime, timezone
+                current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                if "{current_datetime}" in default_prompt:
+                    default_prompt = default_prompt.format(current_datetime=current_datetime)
+                
                 provider_prompt_override = str(provider.get("system_prompt_override") or "").strip()
                 effective_system_prompt = provider_prompt_override or default_prompt
 

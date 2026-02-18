@@ -122,7 +122,8 @@ class ConfigStore:
                 "name": "MiniClaw",
                 "system_prompt_default": (
                     "You are MiniClaw, optimized for smaller models. "
-                    "Be explicit about what actions you took, what data you used, and why."
+                    "Be explicit about what actions you took, what data you used, and why.\n\n"
+                    "Current date and time: {current_datetime} UTC"
                 ),
                 "max_history_messages": 12,
                 "enabled_skills": [],
@@ -349,11 +350,16 @@ class ConfigStore:
 
         merged["agent"]["name"] = str(merged["agent"].get("name") or "MiniClaw")
         legacy_prompt = str(merged["agent"].get("system_prompt") or "").strip()
-        merged["agent"]["system_prompt_default"] = str(
+        default_prompt = str(
             merged["agent"].get("system_prompt_default")
             or legacy_prompt
             or "You are MiniClaw."
         )
+        
+        # Add current date/time to the system prompt
+        from datetime import datetime, timezone
+        current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        merged["agent"]["system_prompt_default"] = default_prompt.format(current_datetime=current_datetime)
         merged["agent"]["system_prompt"] = merged["agent"]["system_prompt_default"]
         merged["agent"]["max_history_messages"] = max(
             2, int(merged["agent"].get("max_history_messages") or 12)
