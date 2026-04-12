@@ -81,11 +81,6 @@ class ToolRunner:
                 },
             },
             {
-                "name": "get_cricket_scores",
-                "description": "Get current cricket scores with multi-step retrieval strategy (API -> Web Scraping -> Search).",
-                "args_schema": {},
-            },
-            {
                 "name": "jobs_create",
                 "description": (
                     "Create or update a scheduled job that runs periodically. To stop/disable a job, "
@@ -987,15 +982,6 @@ class ToolRunner:
                     str(args.get("tool_name") or ""),
                     args.get("arguments") if isinstance(args.get("arguments"), dict) else {},
                 )
-            elif name == "get_cricket_scores":
-                # Import and run cricket scores tool
-                try:
-                    from ..plugins.cricket_scores import get_cricket_scores as cricket_tool
-                    result = cricket_tool(self, args)
-                except ImportError as e:
-                    raise Exception(f"Cricket scores plugin not available: {str(e)}")
-                except Exception as e:
-                    raise Exception(f"Failed to get cricket scores: {str(e)}")
             else:
                 raise ValueError(f"Unknown tool: {name}")
             payload = {
