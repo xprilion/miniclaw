@@ -220,6 +220,70 @@ class TestTelegramService(unittest.TestCase):
             self.telegram_service._parse_count_sequence_request(text)
         self.assertIn("Count range is too large", str(context.exception))
 
+    def test_issue_cli_claim_code_creates_pairing_request(self):
+        """An unpaired Telegram chat should receive a one-time CLI claim code."""
+        with patch.object(self.telegram_service, "_send_message") as mock_send:
+            self.telegram_service._issue_cli_claim_code(
+                "test_token",
+                "12345",
+                {"id": 12345, "username": "alice"},
+            )
+
+        self.assertEqual(len(self.telegram_service._pairing_requests), 1)
+        request = next(iter(self.telegram_service._pairing_requests.values()))
+        self.assertEqual(request["chat_id"], "12345")
+        self.assertTrue(request["claim_code"])
+        mock_send.assert_called_once()
+
+    def test_resolve_pairing_code_approves_pending_request(self):
+        """Claim codes should approve the matching pending pairing request."""
+        with self.telegram_service._lock:
+            request = self.telegram_service._create_pairing_request_locked(
+                "12345",
+                {"id": 12345, "username": "alice"},
+                source="auto_claim",
+            )
+
+        with patch.object(self.telegram_service, "_send_message"):
+            resolved = self.telegram_service.resolve_pairing_code(request["claim_code"])
+
+        self.assertEqual(resolved["status"], "approved")
+        config = self.config_store.get()
+        self.assertEqual(config["telegram"]["allowed_chat_ids"], ["12345"])
+
+    def test_handle_tool_approval_command(self):
+        """Tool approval commands should resolve pending Telegram permission requests."""
+        approval_event = threading.Event()
+        with self.telegram_service._lock:
+            self.telegram_service._pending_tool_approvals["perm-1"] = {
+                "request_id": "perm-1",
+                "chat_id": "12345",
+                "tool_name": "run_command",
+                "reason": "Run shell command in .: pwd",
+                "status": "pending",
+                "requested_at": "2026-01-01T00:00:00+00:00",
+                "resolved_at": None,
+                "resolved_by": None,
+                "approved": None,
+                "_event": approval_event,
+            }
+
+        with patch.object(self.telegram_service, "_send_message") as mock_send:
+            handled = self.telegram_service._handle_tool_approval_command(
+                "test_token",
+                "12345",
+                {"id": 99, "username": "alice"},
+                "/approve perm-1",
+            )
+
+        self.assertTrue(handled)
+        self.assertTrue(approval_event.is_set())
+        self.assertEqual(
+            self.telegram_service._pending_tool_approvals["perm-1"]["status"],
+            "approved",
+        )
+        mock_send.assert_called()
+
 
 class TestTelegramServiceWithActivePairing(unittest.TestCase):
     """Test cases for TelegramService with active pairing."""

@@ -666,13 +666,13 @@ This wizard will guide you through setting up MiniClaw with:
 
     def _telegram_configuration_step(self) -> bool:
         """Configure Telegram integration."""
-        print("\n📱 Telegram Bot Configuration (Optional)")
-        print("You can create a Telegram bot to interact with MiniClaw.")
+        print("\n📱 Telegram Bot Configuration")
+        print("MiniClaw is Telegram-first and expects user instructions to arrive there.")
         print("Visit https://core.telegram.org/bots#botfather to create a bot.")
         configure = (
-            input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
+            input("\nDo you want to configure Telegram now? (Y/n): ").strip().lower()
         )
-        if configure not in ["y", "yes"]:
+        if configure in ["n", "no"]:
             self.state["telegram_config"] = None
             return True
         bot_token = input("Enter your Telegram bot token: ").strip()
@@ -720,7 +720,7 @@ This wizard will guide you through setting up MiniClaw with:
         if self.state.get("telegram_config"):
             print("   Status: Configured")
         else:
-            print("   Status: Not configured (optional)")
+            print("   Status: Not configured (interactive Telegram control will stay disabled)")
         # Confirm
         confirm = input("\nProceed with installation? (Y/n): ").strip().lower()
         return confirm != "n"
@@ -780,6 +780,7 @@ This wizard will guide you through setting up MiniClaw with:
         # Prepare provider config
         provider_config = self.state.get("provider_config", {})
         telegram_config = self.state.get("telegram_config")
+        project_directory = str(Path.cwd().resolve())
         config = {
             "server": {
                 "host": "127.0.0.1",
@@ -801,7 +802,7 @@ This wizard will guide you through setting up MiniClaw with:
                 "progress_update_seconds": 12,
             },
             "channels": {
-                "active_channel": "telegram" if telegram_config else "web",
+                "active_channel": "telegram",
                 "telegram": {},
                 "whatsapp_wacli": {
                     "enabled": False,
@@ -824,9 +825,11 @@ This wizard will guide you through setting up MiniClaw with:
             "agent": {
                 "name": "MiniClaw",
                 "system_prompt_default": (
-                    "You are MiniClaw, optimized for smaller models. "
-                    "Be explicit about what actions you took, what data you used, and why."
+                    "You are MiniClaw, a Telegram-first AI coding agent. "
+                    "Focus on code changes, terminal workflows, debugging, and repository operations. "
+                    "Inspect before editing, explain what you changed, and keep the user informed with concise progress updates."
                 ),
+                "command_channel": "telegram",
                 "max_history_messages": 12,
                 "enabled_skills": [],
                 "enabled_plugins": ["trace_tag", "response_formatter"],
@@ -848,7 +851,8 @@ This wizard will guide you through setting up MiniClaw with:
                 "allow_mcp": True,
                 "command_timeout_seconds": 25,
                 "output_char_limit": 12000,
-                "working_directory": str(self.workspace),
+                "working_directory": project_directory,
+                "telegram_approval_required_tools": ["run_command", "write_file"],
             },
             "mcp": {
                 "enabled": True,

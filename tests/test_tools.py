@@ -128,6 +128,45 @@ class TestToolRunner(unittest.TestCase):
         self.assertNotIn("read_file", tool_names)
         self.assertNotIn("write_file", tool_names)
 
+    def test_run_command_requests_telegram_approval(self):
+        """Sensitive Telegram tools should request approval before executing."""
+        callback = Mock(return_value=True)
+        self.tool_runner.set_permission_request_callback(callback)
+
+        with patch.object(
+            self.tool_runner,
+            "_run_command",
+            return_value={"command": "pwd", "exit_code": 0},
+        ) as mock_run_command:
+            result = self.tool_runner.run(
+                "run_command",
+                {"command": "pwd"},
+                trace={"source": "telegram", "meta": {"chat_id": "12345"}},
+                user_id="telegram:12345",
+            )
+
+        self.assertTrue(result["ok"])
+        callback.assert_called_once()
+        mock_run_command.assert_called_once()
+
+    def test_run_command_denied_by_telegram_approval(self):
+        """Denied Telegram approvals should stop sensitive tools before execution."""
+        callback = Mock(return_value=False)
+        self.tool_runner.set_permission_request_callback(callback)
+
+        with patch.object(self.tool_runner, "_run_command") as mock_run_command:
+            result = self.tool_runner.run(
+                "run_command",
+                {"command": "pwd"},
+                trace={"source": "telegram", "meta": {"chat_id": "12345"}},
+                user_id="telegram:12345",
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("denied approval", result["error"])
+        callback.assert_called_once()
+        mock_run_command.assert_not_called()
+
     def test_agent_prompt_block(self):
         """Test agent prompt block generation."""
         prompt = self.tool_runner.agent_prompt_block()

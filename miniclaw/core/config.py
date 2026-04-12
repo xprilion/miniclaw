@@ -121,9 +121,13 @@ class ConfigStore:
             "agent": {
                 "name": "MiniClaw",
                 "system_prompt_default": (
-                    "You are MiniClaw, optimized for smaller models. "
-                    "Be explicit about what actions you took, what data you used, and why."
+                    "You are MiniClaw, a Telegram-first AI coding agent. "
+                    "Focus on code changes, terminal workflows, debugging, and repository operations. "
+                    "Inspect before editing, explain what you changed, and keep the user informed with concise progress updates.\n\n"
+                    "Current date and time: {current_datetime} {timezone}"
                 ),
+                "command_channel": "telegram",
+                "timezone": "UTC",
                 "max_history_messages": 12,
                 "enabled_skills": [],
                 "enabled_plugins": ["trace_tag"],
@@ -146,6 +150,7 @@ class ConfigStore:
                 "command_timeout_seconds": 25,
                 "output_char_limit": 12000,
                 "working_directory": str(BASE_DIR),
+                "telegram_approval_required_tools": ["run_command", "write_file"],
             },
             "mcp": {
                 "enabled": True,
@@ -348,11 +353,36 @@ class ConfigStore:
         )
 
         merged["agent"]["name"] = str(merged["agent"].get("name") or "MiniClaw")
+        command_channel = str(merged["agent"].get("command_channel") or "telegram").strip().lower()
+        if command_channel not in {"telegram", "multi"}:
+            command_channel = "telegram"
+        merged["agent"]["command_channel"] = command_channel
+        merged["agent"]["timezone"] = str(merged["agent"].get("timezone") or "UTC")
         legacy_prompt = str(merged["agent"].get("system_prompt") or "").strip()
-        merged["agent"]["system_prompt_default"] = str(
+        default_prompt = str(
             merged["agent"].get("system_prompt_default")
             or legacy_prompt
             or "You are MiniClaw."
+        )
+        
+        # Add current date/time to the system prompt
+        from datetime import datetime, timezone
+        import pytz
+        
+        # Handle timezone configuration
+        tz_name = merged["agent"]["timezone"]
+        try:
+            tz = pytz.timezone(tz_name)
+            current_datetime = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            timezone_display = tz_name
+        except:
+            # Fallback to UTC if timezone is invalid
+            current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            timezone_display = "UTC"
+            
+        merged["agent"]["system_prompt_default"] = default_prompt.format(
+            current_datetime=current_datetime,
+            timezone=timezone_display
         )
         merged["agent"]["system_prompt"] = merged["agent"]["system_prompt_default"]
         merged["agent"]["max_history_messages"] = max(
@@ -431,6 +461,12 @@ class ConfigStore:
         tools_raw = merged.get("tools")
         if not isinstance(tools_raw, dict):
             tools_raw = {}
+        telegram_approval_required_tools = tools_raw.get("telegram_approval_required_tools") or [
+            "run_command",
+            "write_file",
+        ]
+        if not isinstance(telegram_approval_required_tools, list):
+            telegram_approval_required_tools = [telegram_approval_required_tools]
         merged["tools"] = {
             "enabled": bool(tools_raw.get("enabled", True)),
             "max_steps": max(0, min(100, int(tools_raw.get("max_steps") or 4))),
@@ -446,6 +482,11 @@ class ConfigStore:
                 2000, min(200000, int(tools_raw.get("output_char_limit") or 12000))
             ),
             "working_directory": str(tools_raw.get("working_directory") or BASE_DIR),
+            "telegram_approval_required_tools": [
+                str(item).strip()
+                for item in telegram_approval_required_tools
+                if str(item).strip()
+            ],
             # Preserve additional tool configurations like permissions
             "permissions": (
                 dict(tools_raw.get("permissions", {}))

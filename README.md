@@ -1,6 +1,6 @@
 # MiniClaw
 
-MiniClaw is a secure, minimal AI agent infrastructure built for production environments. Inspired by OpenClaw, it provides a lightweight yet powerful platform for running AI agents locally with enterprise-grade features.
+MiniClaw is a Telegram-first AI coding agent that runs locally in your terminal, works inside a project directory, and takes user instructions from a paired Telegram bot instead of the CLI itself.
 
 Configuration and data are stored in `~/.miniclaw`, while this repository contains only the core code.
 
@@ -10,25 +10,25 @@ Configuration and data are stored in `~/.miniclaw`, while this repository contai
 
 ## Key Features
 
-### Security
-- Advanced sandboxing with path validation
-- Permission controls and rate limiting
-- Content filtering and input sanitization
+### Coding First
+- Focused on code changes, repo inspection, shell workflows, and local debugging
+- Project workspace tools for reading files, writing files, and running commands
+- Telegram-native approval flow for sensitive actions like shell commands and file writes
 
-### Production Ready
-- Comprehensive monitoring and error handling
-- Scalable architecture with CI/CD integration
-- Detailed event logging and tracking
+### Telegram Native
+- Pair a single Telegram chat to control the agent remotely
+- Progress updates and permission prompts are delivered in Telegram
+- Typing heartbeats keep long-running tasks feeling responsive
 
-### Developer Friendly
-- Extensible plugin system with lifecycle hooks
-- Rich API and comprehensive testing
-- Well-documented architecture
+### Local Monitoring
+- The terminal is for onboarding, monitoring, and service control
+- Event and runtime commands show what the agent is doing locally
+- Clean separation between remote control and local observability
 
-### User Experience
-- Interactive setup wizard
-- Modern web interface with dark/light mode
-- Multiple AI provider support (Ollama, OpenAI, OpenRouter, etc.)
+### Flexible Models
+- Multiple AI provider support (Ollama, OpenAI-compatible APIs, OpenRouter, LiteLLM)
+- Plugin and MCP integration for extending the coding workflow
+- Persistent memory, history, and monitoring event logs
 
 ## Installation
 
@@ -63,11 +63,17 @@ The installation process includes optional database installation (Valkey, KeyDB,
    miniclaw gateway
    ```
 
-4. Chat via CLI or web UI
+4. Pair Telegram
    ```bash
-   miniclaw agent -m "What is 2+2?"
+   Send any message to your Telegram bot
+   miniclaw telegram pair-claim --code <CODE>
    ```
-   Or visit http://127.0.0.1:8787
+
+5. Send coding instructions from the paired Telegram chat and monitor locally with:
+   ```bash
+   miniclaw events
+   miniclaw runtime
+   ```
 
 ## Running as a Service
 
@@ -86,7 +92,7 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 ### Core Commands
 - `install` - Create workspace and guide through prerequisites with interactive setup
 - `uninstall [--yes]` - Remove workspace directory
-- `gateway [--host HOST] [--port PORT]` - Start the server (web + Telegram)
+- `gateway [--host HOST] [--port PORT]` - Start the Telegram coding-agent bridge and monitor services
 - `gateway start` - Start MiniClaw as a background service
 - `gateway stop` - Stop the MiniClaw service
 - `gateway restart` - Restart the MiniClaw service
@@ -96,10 +102,16 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 - `update` - Update dependencies and existing installation
 - `health` - Check /api/health
 
-### Agent Interaction
-- `agent [-m MESSAGE] [MESSAGE_POS] [--provider PROVIDER] [--json] [--stdin]` - Chat with the agent
-- `chat [MESSAGE] [--source SOURCE] [--provider PROVIDER] [--stdin] [--json]` - Send chat message
+### Telegram & Monitoring
+- `telegram pair-claim --code CODE` - Approve a Telegram pairing request by claim code
+- `telegram pair-start [--ttl TTL]` - Create Telegram pairing code
+- `telegram pairings` - Get pairing status and requests
+- `telegram pair-confirm --request-id REQUEST_ID` - Confirm pairing request
+- `telegram pair-reject --request-id REQUEST_ID` - Reject pairing request
+- `telegram unbind` - Remove currently bound Telegram chat
 - `history [--limit LIMIT]` - Get chat history
+- `events [--since-id SINCE_ID] [--limit LIMIT]` - Get monitoring events
+- `runtime` - Get runtime snapshot
 
 ### Configuration
 - `config get` - Get normalized config JSON
@@ -129,14 +141,9 @@ See [SERVICE_INSTALLATION.md](SERVICE_INSTALLATION.md) for detailed instructions
 - `jobs delete --id ID` - Delete job
 - `jobs run --id ID` - Trigger job now
 
-### Telegram Integration
-- `telegram restart` - Restart Telegram poller
-- `telegram test --chat-id CHAT_ID [--message MESSAGE]` - Send Telegram test message
-- `telegram pairings` - Get pairing status and requests
-- `telegram pair-start [--ttl TTL]` - Create Telegram pairing code
-- `telegram pair-confirm --request-id REQUEST_ID` - Confirm pairing request
-- `telegram pair-reject --request-id REQUEST_ID` - Reject pairing request
-- `telegram unbind` - Remove currently bound Telegram chat
+### Deprecated Local Chat Commands
+- `agent ...` - Local interactive chat is disabled; send instructions through Telegram instead
+- `chat ...` - Local interactive chat is disabled; send instructions through Telegram instead
 
 ### Service Management
 - `service install` - Install MiniClaw as a system service

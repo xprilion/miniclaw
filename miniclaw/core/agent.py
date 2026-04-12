@@ -17,6 +17,10 @@ from ..plugins.plugins import PluginRegistry
 from ..tools.skills import SkillRegistry
 from ..tools.tools import ToolRunner
 from ..core.util import LOGGER, truncate_text, utc_now
+from ..core.reasoning import ReasoningEngine
+from ..core.decisions import DecisionFramework
+from ..core.planning import ActionPlanner
+from ..core.communication import CommunicationManager
 
 
 class MiniClawAgent:
@@ -43,6 +47,23 @@ class MiniClawAgent:
         self._security = security_managers or {}
         self._history: deque[Dict[str, Any]] = deque(maxlen=400)
         self._chat_lock = threading.Lock()
+        self._session_id = f"session-{int(time.time() * 1000)}"
+        self._sessions: Dict[str, Dict[str, Any]] = {}
+        
+        # Initialize current session
+        self._sessions[self._session_id] = {
+            "id": self._session_id,
+            "start_time": utc_now(),
+            "last_activity": utc_now(),
+            "message_count": 0,
+            "title": None,
+        }
+
+        # Initialize chain-of-thought enhancement components
+        self._reasoning_engine = ReasoningEngine(event_log)
+        self._decision_framework = DecisionFramework(event_log)
+        self._action_planner = ActionPlanner(event_log)
+        self._communication_manager = CommunicationManager(event_log)
 
         # Set the skill registry reference in the advanced file selection plugin if it exists
         try:
@@ -90,6 +111,53 @@ class MiniClawAgent:
         with self._chat_lock:
             return list(self._history)[-safe_limit:]
 
+    def clear_history(self) -> None:
+        """Clear the conversation history for this agent."""
+        with self._chat_lock:
+            self._history.clear()
+        LOGGER.info("Agent conversation history cleared")
+    
+    def list_sessions(self) -> List[Dict[str, Any]]:
+        """List all sessions, newest first."""
+        with self._chat_lock:
+            sessions = list(self._sessions.values())
+            sessions.sort(key=lambda s: s.get("start_time", ""), reverse=True)
+            return sessions
+    
+    def history_for_session(self, session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get history entries for a specific session."""
+        safe_limit = max(1, min(int(limit), 400))
+        with self._chat_lock:
+            entries = [e for e in self._history if e.get("session_id") == session_id]
+            return entries[-safe_limit:]
+    
+    def create_session(self, meta: Optional[Dict[str, Any]] = None) -> str:
+        """Create a new session and return its ID."""
+        with self._chat_lock:
+            meta_payload = meta or {}
+            chat_id = meta_payload.get("chat_id")
+            
+            new_session_id = f"session-{int(time.time() * 1000)}"
+            self._session_id = new_session_id
+            self._sessions[new_session_id] = {
+                "id": new_session_id,
+                "start_time": utc_now(),
+                "last_activity": utc_now(),
+                "message_count": 0,
+                "title": None,
+                "chat_id": str(chat_id) if chat_id else None,
+            }
+            
+            # Also clear history when new session is created (backward compatible)
+            self._history.clear()
+            
+            LOGGER.info("Created new session: %s", new_session_id)
+            return new_session_id
+    
+    def get_current_session_id(self) -> str:
+        """Get the current session ID."""
+        return self._session_id
+
     def chat(self, user_message: str, source: str = "web", meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.chat_with_updates(user_message=user_message, source=source, meta=meta, status_callback=None)
 
@@ -106,6 +174,15 @@ class MiniClawAgent:
         LOGGER.info("Agent request source=%s message_chars=%d", source, len(content))
         meta_payload = copy.deepcopy(meta) if isinstance(meta, dict) else {}
         requested_provider_id = str(meta_payload.get("provider_id") or "").strip().lower()
+        tool_user_id = str(source or "default")
+        if source == "telegram":
+            chat_id = str(meta_payload.get("chat_id") or "").strip()
+            if chat_id:
+                tool_user_id = f"telegram:{chat_id}"
+        elif source in {"web", "cli", "api"}:
+            client_ip = str(meta_payload.get("client_ip") or "").strip()
+            if client_ip:
+                tool_user_id = f"{source}:{client_ip}"
 
         def report_status(message: str) -> None:
             if not status_callback:
@@ -157,6 +234,28 @@ class MiniClawAgent:
                     or agent_cfg.get("system_prompt")
                     or "You are MiniClaw."
                 ).strip()
+                
+                # Update the prompt with current date/time based on configured timezone
+                from datetime import datetime, timezone
+                import pytz
+                
+                # Handle timezone configuration
+                tz_name = agent_cfg.get("timezone", "UTC")
+                try:
+                    tz = pytz.timezone(tz_name)
+                    current_datetime = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+                    timezone_display = tz_name
+                except:
+                    # Fallback to UTC if timezone is invalid
+                    current_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                    timezone_display = "UTC"
+                
+                if "{current_datetime}" in default_prompt or "{timezone}" in default_prompt:
+                    default_prompt = default_prompt.format(
+                        current_datetime=current_datetime,
+                        timezone=timezone_display
+                    )
+                
                 provider_prompt_override = str(provider.get("system_prompt_override") or "").strip()
                 effective_system_prompt = provider_prompt_override or default_prompt
 
@@ -225,6 +324,11 @@ class MiniClawAgent:
                 messages.extend(plugin_messages)
 
                 messages.append({"role": "user", "content": content})
+
+                # Apply chain-of-thought reasoning for complex queries
+                cot_result = self._apply_chain_of_thought_reasoning(content, selected_skills, plugin_context)
+                if cot_result and "explanation" in cot_result:
+                    messages.append({"role": "system", "content": f"[Reasoning Process]\n{cot_result['explanation']}"})
 
                 self._event_log.add(
                     "agent.plan",
@@ -417,8 +521,14 @@ class MiniClawAgent:
                             tool_result = self._tool_runner.run(
                                 tool_name,
                                 tool_args,
-                                trace={"trace_id": trace_id, "source": source, "step": len(tool_runs) + 1},
-                                user_id=source,  # Use source as user identifier for now
+                                trace={
+                                    "trace_id": trace_id,
+                                    "source": source,
+                                    "step": len(tool_runs) + 1,
+                                    "meta": meta_payload,
+                                    "client_ip": meta_payload.get("client_ip"),
+                                },
+                                user_id=tool_user_id,
                             )
                             tool_runs.append(
                                 {"tool": tool_name, "arguments": tool_args, "result": tool_result},
@@ -471,8 +581,14 @@ class MiniClawAgent:
                     tool_result = self._tool_runner.run(
                         tool_name,
                         tool_args,
-                        trace={"trace_id": trace_id, "source": source, "step": len(tool_runs) + 1},
-                        user_id=source,  # Use source as user identifier for now
+                        trace={
+                            "trace_id": trace_id,
+                            "source": source,
+                            "step": len(tool_runs) + 1,
+                            "meta": meta_payload,
+                            "client_ip": meta_payload.get("client_ip"),
+                        },
+                        user_id=tool_user_id,
                     )
                     tool_runs.append(
                         {
@@ -526,6 +642,7 @@ class MiniClawAgent:
                         "source": source,
                         "meta": meta_payload,
                         "timestamp": now,
+                        "session_id": self._session_id,
                     }
                 )
                 self._history.append(
@@ -541,8 +658,18 @@ class MiniClawAgent:
                             "tool_runs": tool_runs,
                         },
                         "timestamp": now,
+                        "session_id": self._session_id,
                     }
                 )
+                
+                # Update session info
+                if self._session_id in self._sessions:
+                    self._sessions[self._session_id]["last_activity"] = now
+                    self._sessions[self._session_id]["message_count"] += 2
+                    # Set title from first user message if not set
+                    if not self._sessions[self._session_id].get("title"):
+                        title = content[:50] + ("..." if len(content) > 50 else "")
+                        self._sessions[self._session_id]["title"] = title
 
                 self._plugin_registry.run_post_response(
                     {
@@ -616,3 +743,144 @@ class MiniClawAgent:
                 )
                 LOGGER.exception("Agent error source=%s", source)
                 raise
+
+    def _apply_chain_of_thought_reasoning(self, query: str, selected_skills: List[Dict[str, Any]], 
+                                        context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Apply chain-of-thought reasoning to complex queries."""
+        # Determine if reasoning should be engaged
+        if not self._reasoning_engine.should_engage_reasoning(query, selected_skills):
+            return None
+        
+        try:
+            self._event_log.add(
+                "agent.cot.engaged",
+                "Engaging chain-of-thought reasoning",
+                {"query_length": len(query)}
+            )
+            
+            # Build comprehensive context for reasoning
+            reasoning_context = {
+                "query": query,
+                "selected_skills": selected_skills,
+                "agent_context": context
+            }
+            
+            # 1. Problem Analysis
+            analysis = self._reasoning_engine.analyze_problem(query, reasoning_context)
+            
+            # 2. Approach Exploration
+            approaches = self._reasoning_engine.explore_approaches(analysis)
+            
+            # 3. Decision Making
+            decision_criteria = [
+                {"name": "effectiveness", "weight": 0.3},
+                {"name": "effort", "weight": 0.2},
+                {"name": "risk", "weight": 0.2},
+                {"name": "time", "weight": 0.15},
+                {"name": "resources", "weight": 0.15}
+            ]
+            
+            # Evaluate approaches using the decision framework
+            evaluated_approaches = []
+            for approach in approaches:
+                # Add evaluation scores for each criterion
+                evaluation = {
+                    "effectiveness": self._evaluate_effectiveness(approach),
+                    "effort": self._evaluate_effort(approach),
+                    "risk": self._evaluate_risk(approach),
+                    "time": self._evaluate_time(approach),
+                    "resources": self._evaluate_resources(approach)
+                }
+                approach["evaluation"] = evaluation
+                evaluated_approaches.append(approach)
+            
+            decision_result = self._decision_framework.make_decision_with_criteria(
+                evaluated_approaches, decision_criteria
+            )
+            
+            # 4. Action Planning
+            selected_approach = decision_result.get("selected_option", {})
+            if selected_approach:
+                execution_plan = self._action_planner.create_plan(
+                    selected_approach.get("name", "Execute approach"), 
+                    {"approach": selected_approach, "context": reasoning_context}
+                )
+            else:
+                execution_plan = {}
+            
+            # 5. Format comprehensive explanation
+            cot_result = {
+                "analysis": analysis,
+                "approaches": evaluated_approaches,
+                "decision": decision_result,
+                "plan": execution_plan
+            }
+            
+            explanation = self._communication_manager.create_comprehensive_explanation(cot_result)
+            
+            self._event_log.add(
+                "agent.cot.completed",
+                "Chain-of-thought reasoning completed",
+                {
+                    "approaches_considered": len(approaches),
+                    "selected_approach": selected_approach.get("name") if selected_approach else None
+                }
+            )
+            
+            return {
+                "reasoning_result": cot_result,
+                "explanation": explanation
+            }
+            
+        except Exception as e:
+            self._event_log.add(
+                "agent.cot.error",
+                "Error in chain-of-thought reasoning",
+                {"error": str(e)}
+            )
+            # Continue without reasoning if there's an error
+            return None
+    
+    def _evaluate_effectiveness(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the effectiveness of an approach (0.0 to 1.0)."""
+        # Simple heuristic based on approach characteristics
+        pros_count = len(approach.get("pros", []))
+        cons_count = len(approach.get("cons", []))
+        
+        # More pros and fewer cons indicate higher effectiveness
+        if pros_count + cons_count == 0:
+            return 0.5
+        
+        return min(1.0, pros_count / (pros_count + cons_count))
+    
+    def _evaluate_effort(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the effort required for an approach (0.0 to 1.0, inverted)."""
+        effort = approach.get("effort", "Medium")
+        if effort == "Low":
+            return 0.5  # Low effort is good (but not perfect) - convert to score
+        elif effort == "Medium":
+            return 0.7
+        elif effort == "High":
+            return 0.9
+        return 0.7  # Default medium
+    
+    def _evaluate_risk(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the risk of an approach (0.0 to 1.0, inverted)."""
+        risk = approach.get("risk", "Medium")
+        if risk == "Low":
+            return 0.5
+        elif risk == "Medium":
+            return 0.7
+        elif risk == "High":
+            return 0.9
+        return 0.7  # Default medium
+    
+    def _evaluate_time(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the time required for an approach (0.0 to 1.0, inverted)."""
+        # For now, use the same logic as effort
+        return self._evaluate_effort(approach)
+    
+    def _evaluate_resources(self, approach: Dict[str, Any]) -> float:
+        """Evaluate the resources required for an approach (0.0 to 1.0, inverted)."""
+        # For now, use a default value
+        return 0.6

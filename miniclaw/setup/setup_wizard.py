@@ -6,6 +6,7 @@ import json
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from ..core.constants import CONFIG_PATH, WORKSPACE_DIR
@@ -50,8 +51,10 @@ class SetupWizard:
             print(f"⚙️  Config: {self.config_path}")
             print("\n🚀 Next steps:")
             print("   1. Start the server: miniclaw gateway")
-            print("   2. Open http://127.0.0.1:8787 in your browser")
-            print('   3. Or chat via CLI: miniclaw agent -m "Hello!"')
+            print("   2. Send any message to your Telegram bot to receive a claim code")
+            print("   3. On the host run: miniclaw telegram pair-claim --code <CODE>")
+            print("   4. Send coding instructions from the paired Telegram chat")
+            print("   5. Monitor locally with: miniclaw events or miniclaw runtime")
 
             # Offer to set up service (skip during testing)
             import os
@@ -285,15 +288,16 @@ class SetupWizard:
         }
 
     def _configure_telegram(self) -> Optional[Dict[str, Any]]:
-        """Configure Telegram integration (optional)."""
-        print("\n📱 Configure Telegram Bot (optional)")
-        print("   You can create a Telegram bot to interact with MiniClaw.")
+        """Configure Telegram integration."""
+        print("\n📱 Configure Telegram Bot")
+        print("   MiniClaw is Telegram-first and expects user instructions to arrive there.")
         print("   Visit https://core.telegram.org/bots#botfather to create a bot.")
 
         configure = (
-            input("\nDo you want to configure Telegram now? (y/N): ").strip().lower()
+            input("\nDo you want to configure Telegram now? (Y/n): ").strip().lower()
         )
-        if configure not in ["y", "yes"]:
+        if configure in ["n", "no"]:
+            print("   Telegram setup skipped. MiniClaw will not be usable for interactive coding until you add a bot token.")
             return None
 
         bot_token = input("Enter your Telegram bot token: ").strip()
@@ -320,6 +324,7 @@ class SetupWizard:
 
         # Ensure parent directory exists
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        project_directory = str(Path.cwd().resolve())
 
         config = {
             "server": {
@@ -365,9 +370,11 @@ class SetupWizard:
             "agent": {
                 "name": "MiniClaw",
                 "system_prompt_default": (
-                    "You are MiniClaw, optimized for smaller models. "
-                    "Be explicit about what actions you took, what data you used, and why."
+                    "You are MiniClaw, a Telegram-first AI coding agent. "
+                    "Focus on code changes, terminal workflows, debugging, and repository operations. "
+                    "Inspect before editing, explain what you changed, and keep the user informed with concise progress updates."
                 ),
+                "command_channel": "telegram",
                 "max_history_messages": 12,
                 "enabled_skills": [],
                 "enabled_plugins": ["trace_tag", "response_formatter"],
@@ -389,7 +396,8 @@ class SetupWizard:
                 "allow_mcp": True,
                 "command_timeout_seconds": 25,
                 "output_char_limit": 12000,
-                "working_directory": str(self.workspace),
+                "working_directory": project_directory,
+                "telegram_approval_required_tools": ["run_command", "write_file"],
             },
             "mcp": {
                 "enabled": True,

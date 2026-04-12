@@ -1,0 +1,1 @@
+"""MiniClaw web package."""

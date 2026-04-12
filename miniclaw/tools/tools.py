@@ -6,7 +6,7 @@ import subprocess
 import time
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..core.app_state import AppState
@@ -32,6 +32,9 @@ class ToolRunner:
         self._app_state = app_state
         self._sandbox = SandboxManager(config_store, event_log)
         self._brave_search_client: Optional[BraveSearchClient] = None
+        self._permission_request_callback: Optional[
+            Callable[[str, str, Dict[str, Any], str, int], bool]
+        ] = None
         # Initialize source tracking attributes
         self._current_source: Optional[str] = None
         self._current_meta: Dict[str, Any] = {}
@@ -39,22 +42,22 @@ class ToolRunner:
         self._tool_defs: List[Dict[str, Any]] = [
             {
                 "name": "run_command",
-                "description": "Run a shell command on the host system.",
+                "description": "Run a shell command inside the project workspace for build, test, git, or debug work.",
                 "args_schema": {"command": "string", "cwd": "string(optional)", "timeout_seconds": "int(optional)"},
             },
             {
                 "name": "list_dir",
-                "description": "List files/directories in a path.",
+                "description": "List files and directories in the project workspace.",
                 "args_schema": {"path": "string(optional)"},
             },
             {
                 "name": "read_file",
-                "description": "Read a UTF-8 text file.",
+                "description": "Read a UTF-8 text file from the project workspace.",
                 "args_schema": {"path": "string"},
             },
             {
                 "name": "write_file",
-                "description": "Write UTF-8 text content to a file (overwrites).",
+                "description": "Write UTF-8 text content to a file in the project workspace (overwrites).",
                 "args_schema": {"path": "string", "content": "string"},
             },
             {
@@ -137,6 +140,11 @@ class ToolRunner:
             },
         ]
 
+    def set_permission_request_callback(
+        self, callback: Optional[Callable[[str, str, Dict[str, Any], str, int], bool]]
+    ) -> None:
+        self._permission_request_callback = callback
+
     def _cfg(self) -> Dict[str, Any]:
         config = self._config_store.get()
         return config.get("tools") or {}
@@ -203,13 +211,14 @@ class ToolRunner:
 
     def _tool_instruction_text(self, tool_defs: List[Dict[str, Any]], max_steps: int) -> str:
         lines = [
-            "You can use tools to act on the system before answering. Prefer using them when the user asks to run "
-            "something, read/write files, or fetch web content.",
+            "You are operating as a coding agent. Use tools when you need to inspect the repo, edit files, run "
+            "tests, execute project commands, or fetch documentation.",
             f"Tool loop budget: {max_steps} calls max for this request.",
-            "Use run_command to run shell commands (e.g. list processes, check disk, run scripts). "
-            "Use list_dir and read_file for filesystem inspection; use write_file to create or overwrite files. "
-            "Use fetch_url or browser_extract to retrieve web pages. Use mcp_* tools when you need a configured "
-            "MCP server.",
+            "Prefer list_dir/read_file before write_file so you understand the existing code before editing it. "
+            "Use run_command for build, test, git, or local debug tasks. Use fetch_url or browser_extract to "
+            "retrieve docs. Use mcp_* tools when you need a configured MCP server.",
+            "In Telegram sessions, sensitive actions like shell commands or file writes may require user approval. "
+            "Choose tools deliberately and keep the reason obvious from context.",
             "To invoke a tool, respond with exactly one JSON object, no other text:",
             '{"tool":"tool_name","arguments":{"key":"value"}}',
             "When no tool is needed, reply directly to the user.",
@@ -276,6 +285,98 @@ class ToolRunner:
         if not isinstance(args, dict):
             args = {}
         return {"tool": tool_name, "arguments": args}
+
+    def _approval_required_tools(self) -> List[str]:
+        cfg = self._cfg()
+        raw = cfg.get("telegram_approval_required_tools") or [
+            "run_command",
+            "write_file",
+        ]
+        if not isinstance(raw, list):
+            raw = [raw]
+        approved_tools: List[str] = []
+        for item in raw:
+            tool_name = str(item or "").strip()
+            if tool_name and tool_name not in approved_tools:
+                approved_tools.append(tool_name)
+        return approved_tools
+
+    def _tool_needs_telegram_approval(self, tool_name: str) -> bool:
+        if self._current_source != "telegram" or not self._current_chat_id:
+            return False
+        return tool_name in self._approval_required_tools()
+
+    def _build_tool_approval_reason(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Build detailed approval info for Telegram permission request."""
+        if tool_name == "run_command":
+            command = str(arguments.get("command") or "").strip()
+            cwd = str(arguments.get("cwd") or "").strip() or "."
+            return {
+                "command": command,
+                "cwd": cwd,
+                "reason": f"Run shell command in {cwd}",
+            }
+        if tool_name == "write_file":
+            path = str(arguments.get("path") or "").strip() or "(missing path)"
+            content = str(arguments.get("content") or "")
+            preview = content[:200] + "..." if len(content) > 200 else content
+            return {
+                "path": path,
+                "content_preview": preview,
+                "content_length": len(content),
+                "reason": f"Write to file {path}",
+            }
+        if tool_name == "mcp_call_tool":
+            server_id = str(arguments.get("server_id") or "").strip() or "(unknown server)"
+            tool = str(arguments.get("tool_name") or "").strip() or "(unknown tool)"
+            tool_args = arguments.get("arguments") or {}
+            return {
+                "server": server_id,
+                "tool": tool,
+                "arguments": tool_args,
+                "reason": f"Call MCP tool '{tool}' on {server_id}",
+            }
+        return {
+            "reason": f"Run tool {tool_name}",
+            "arguments": arguments,
+        }
+    
+    def _build_simple_approval_reason(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """Build simple one-line reason for backwards compatibility."""
+        if tool_name == "run_command":
+            command = str(arguments.get("command") or "").strip()
+            cwd = str(arguments.get("cwd") or "").strip() or "."
+            return f"Run shell command in {cwd}: {command[:50]}{'...' if len(command) > 50 else ''}"
+        if tool_name == "write_file":
+            path = str(arguments.get("path") or "").strip() or "(missing path)"
+            content = str(arguments.get("content") or "")
+            return f"Write to file {path} ({len(content)} chars)"
+        if tool_name == "mcp_call_tool":
+            server_id = str(arguments.get("server_id") or "").strip() or "(unknown server)"
+            tool = str(arguments.get("tool_name") or "").strip() or "(unknown tool)"
+            return f"Call MCP tool '{tool}' on {server_id}"
+        return f"Run tool {tool_name}"
+
+    def _request_telegram_approval(self, tool_name: str, arguments: Dict[str, Any]) -> None:
+        if not self._tool_needs_telegram_approval(tool_name):
+            return
+        if not self._permission_request_callback or not self._current_chat_id:
+            raise PermissionError(
+                f"Telegram approval is required for {tool_name}, but no approval callback is configured"
+            )
+        # Get full details for the permission message
+        details = self._build_tool_approval_reason(tool_name, arguments)
+        simple_reason = self._build_simple_approval_reason(tool_name, arguments)
+        approved = self._permission_request_callback(
+            self._current_chat_id,
+            tool_name,
+            arguments,
+            simple_reason,
+            details,  # Pass full details
+            300,
+        )
+        if not approved:
+            raise PermissionError(f"Telegram user denied approval for tool: {tool_name}")
 
     def _run_command(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         if not self._allow("allow_shell", True):
@@ -800,7 +901,7 @@ class ToolRunner:
 
         # Safely extract chat_id with proper type handling
         if source == "telegram":
-            chat_id = self._current_meta.get("chat_id")
+            chat_id = self._current_meta.get("chat_id") or trace_details.get("chat_id")
             self._current_chat_id = str(chat_id) if chat_id is not None else None
         else:
             self._current_chat_id = None
@@ -819,12 +920,14 @@ class ToolRunner:
             if not rate_limiter.check_rate_limit(user_id=user_id, ip_address=ip_address):
                 raise PermissionError("Rate limit exceeded")
 
-        self._event_log.add(
-            "tool.run.start",
-            "Tool execution started",
-            {"tool": name, "arguments": args, "trace": trace_details, "user_id": user_id},
-        )
         try:
+            self._request_telegram_approval(name, args)
+
+            self._event_log.add(
+                "tool.run.start",
+                "Tool execution started",
+                {"tool": name, "arguments": args, "trace": trace_details, "user_id": user_id},
+            )
             if name == "run_command":
                 result = self._run_command(args)
             elif name == "list_dir":

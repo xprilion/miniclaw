@@ -1,15 +1,15 @@
-# MiniClaw Enhanced Architecture
+# MiniClaw Architecture
 
 ## Overview
 
-MiniClaw Enhanced is a production-ready, safe, and minimal AI agent infrastructure inspired by OpenClaw. It provides a lightweight yet powerful platform for building and deploying AI agents with strong safety guarantees, easy setup, and flexible extensibility.
+MiniClaw is a Telegram-first AI coding agent. The terminal hosts the runtime, monitoring output, and service controls, while a paired Telegram bot is the primary place where the user sends instructions, receives progress updates, and approves sensitive actions.
 
 ## Core Components
 
 ### 1. Agent Engine
-- **Core Agent**: Main intelligence layer that processes user requests, utilizes skills, and executes tools
+- **Core Agent**: Coding-focused intelligence layer that processes Telegram requests, utilizes skills, and executes tools
 - **Skill System**: Markdown-based skill management for contextual guidance
-- **Tool Runtime**: Secure execution environment for system tools (shell, filesystem, network, browser, MCP)
+- **Tool Runtime**: Secure execution environment for coding tools (shell, filesystem, network, browser, MCP)
 - **Memory Store**: Persistent memory management with journaling and context retention
 
 ### 2. Model Integration
@@ -18,10 +18,10 @@ MiniClaw Enhanced is a production-ready, safe, and minimal AI agent infrastructu
 - **Prompt Engineering**: Advanced prompt construction with context, skills, and memory
 
 ### 3. Communication Layer
-- **Web Interface**: Preact-based responsive UI with dark/light mode
-- **Telegram Integration**: Full-featured bot with pairing, progress updates, and single-chat binding
+- **Telegram Integration**: Full-featured bot with pairing, progress updates, permission prompts, and single-chat binding
+- **CLI Monitoring**: Local operator view for health, runtime, and event inspection
 - **API Gateway**: RESTful API endpoints for all functionalities
-- **WebSocket Support**: Real-time communication for streaming responses
+- **Background Workers**: Long-running Telegram tasks execute off the polling loop so approvals can still be received in chat
 
 ### 4. Infrastructure
 - **Configuration Management**: JSON-based config with environment variable overrides
@@ -32,28 +32,26 @@ MiniClaw Enhanced is a production-ready, safe, and minimal AI agent infrastructu
 
 ### 5. Command Line Interface
 - **Enhanced Styling**: Color-coded output with consistent design language
-- **Interactive Navigation**: Step-by-step guidance for complex operations
-- **Progress Indicators**: Visual feedback during long-running operations
-- **Structured Output**: Organized presentation of information
-- **Helpful Error Messages**: Context-aware error handling with guidance
-- **Full API Parity**: CLI access to all web UI functionality
+- **Interactive Navigation**: Telegram-first onboarding for bot setup and pairing
+- **Monitoring Commands**: Runtime, event, history, and service inspection from the terminal
+- **Helpful Error Messages**: Context-aware guidance when users try to interact locally instead of through Telegram
 
 ### 6. Security & Safety
 - **Sandboxing**: Controlled execution environment for tools
-- **Permission System**: Fine-grained access controls for all operations
+- **Permission System**: Fine-grained access controls with Telegram-native approval prompts for sensitive actions
 - **Input Validation**: Strict validation of all user inputs
 - **Rate Limiting**: Protection against abuse and resource exhaustion
 
 ## Data Flow
 
-1. **User Request**: Enters through web UI, Telegram, or API
+1. **User Request**: Enters through the paired Telegram chat
 2. **Preprocessing**: Plugins apply pre-prompt transformations
 3. **Context Building**: Skills, memory, and history are integrated
 4. **Model Interaction**: Prompt is sent to configured provider
-5. **Tool Execution**: If requested, tools are securely executed
-6. **Response Generation**: Final response is formatted and delivered
-7. **Post-processing**: Plugins apply post-response transformations
-8. **Logging**: All events are recorded for monitoring and debugging
+5. **Tool Execution**: Coding tools are executed inside the configured project workspace
+6. **Approval Flow**: Sensitive tool calls pause for Telegram approval when required
+7. **Response Generation**: Final response is formatted and delivered back to Telegram
+8. **Logging**: Events are recorded for local monitoring and debugging
 
 ## Safety Mechanisms
 

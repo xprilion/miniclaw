@@ -26,10 +26,11 @@ TEMPLATES_DIR = _ROOT / "setup" / "templates"
 SKILLS_TEMPLATE_DIR = TEMPLATES_DIR / "skills"
 PLUGINS_TEMPLATE_DIR = TEMPLATES_DIR / "plugins"
 MEMORY_TEMPLATE_DIR = TEMPLATES_DIR / "memory"
-# For static web assets (dev: project root/web; installed: package or project)
-WEB_DIR = _ROOT / "web-built"
-# Fallback for legacy web assets
-LEGACY_WEB_DIR = _ROOT / "web"
+
+# Web templates directory (for Python FastAPI UI)
+WEB_DIR = _ROOT / "web" / "templates"
+LEGACY_WEB_DIR = _ROOT / "web" / "templates"
+
 # Default cwd for tool runs and config working_directory
 BASE_DIR = WORKSPACE_DIR
 
@@ -52,15 +53,7 @@ ENV_KEYS = [
     "TELEGRAM_BOT_TOKEN",
 ]
 
-WEB_ROUTES: Dict[str, str] = {
-    "/": "index.html",
-    "/chat": "index.html",
-    "/setup": "index.html",
-    "/skills": "index.html",
-    "/jobs": "index.html",
-    "/monitoring": "index.html",
-    "/transparency": "index.html",
-}
+WEB_ROUTES: Dict[str, str] = {}
 
 PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 

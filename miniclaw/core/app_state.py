@@ -79,6 +79,7 @@ class AppState:
             security_managers=self.security,
         )
         self.telegram = TelegramService(self.config_store, self.event_log, self.agent)
+        self.tools.set_permission_request_callback(self.telegram.request_tool_permission)
         self.telegram.start_if_enabled()
         self.whatsapp = WhatsAppService(self.config_store, self.event_log, self.agent)
         self.whatsapp.start_if_enabled()
