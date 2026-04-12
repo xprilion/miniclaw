@@ -282,7 +282,7 @@ def run_install_service(args: argparse.Namespace) -> int:
 def run_install(args: argparse.Namespace) -> int:
     """Run the enhanced interactive setup wizard."""
     print(style.header("MiniClaw Installation"))
-    print(style.info("Starting interactive setup wizard with KeyDB support..."))
+    print(style.info("Starting Telegram-first coding agent setup..."))
 
     # Show a simple progress indicator
     print(style.info("Launching setup wizard..."))
@@ -298,10 +298,15 @@ def run_install(args: argparse.Namespace) -> int:
             f"  {style.list_item('Start the server: ' + style.code('miniclaw gateway'))}"
         )
         print(
-            f"  {style.list_item('Open browser: ' + style.url('http://127.0.0.1:8787'))}"
+            f"  {style.list_item('Send any message to your Telegram bot to receive a claim code')}"
         )
-        chat_example = 'miniclaw agent -m "Hello!"'
-        print(f"  {style.list_item('Chat via CLI: ' + style.code(chat_example))}")
+        print(
+            f"  {style.list_item('On the host run: ' + style.code('miniclaw telegram pair-claim --code <CODE>'))}"
+        )
+        print(f"  {style.list_item('Then send instructions from the paired Telegram chat')}")
+        print(
+            f"  {style.list_item('Monitor locally with: ' + style.code('miniclaw events') + ' or ' + style.code('miniclaw runtime'))}"
+        )
 
         # Offer to set up service
         print(f"\n{style.info('Optional: Set up MiniClaw as a background service')}")
@@ -333,6 +338,106 @@ def run_service_command(args: argparse.Namespace) -> int:
         return run_gateway_service(mock_args)
 
     return 1
+
+
+def run_restart(args: argparse.Namespace) -> int:
+    """Restart the service with reinstall (uv pip install -e . + service install + reload)."""
+    os_type = platform.system().lower()
+
+    print(style.header("MiniClaw Restart"))
+    print(style.info("This will:"))
+    print(f"  {style.list_item('Reinstall package in editable mode (uv pip install -e .)')}")
+    print(f"  {style.list_item('Reinstall the service')}")
+    print(f"  {style.list_item('Reload the service')}")
+
+    project_dir = Path(__file__).resolve().parent.parent.parent
+
+    uv_cmd = shutil.which("uv")
+    if uv_cmd:
+        try:
+            print(style.info("Step 1: Reinstalling package with uv..."))
+            subprocess.run(
+                [uv_cmd, "pip", "install", "-e", str(project_dir)],
+                check=True,
+                cwd=str(project_dir),
+            )
+            print(style.success("Package reinstalled successfully"))
+        except subprocess.CalledProcessError as e:
+            print(style.error(f"Failed to reinstall package: {e}"))
+            return 1
+    else:
+        pip_cmd = shutil.which("pip")
+        if pip_cmd:
+            try:
+                print(style.info("Step 1: Reinstalling package with pip..."))
+                subprocess.run(
+                    [pip_cmd, "install", "-e", str(project_dir)],
+                    check=True,
+                    cwd=str(project_dir),
+                )
+                print(style.success("Package reinstalled successfully"))
+            except subprocess.CalledProcessError as e:
+                print(style.error(f"Failed to reinstall package: {e}"))
+                return 1
+        else:
+            print(style.error("Neither uv nor pip found. Cannot reinstall package."))
+            return 1
+
+    try:
+        print(style.info("Step 2: Reinstalling service..."))
+        from miniclaw.setup.init_service import install_service
+
+        success = install_service()
+        if not success:
+            print(style.error("Service reinstall failed."))
+            return 1
+        print(style.success("Service reinstalled successfully"))
+    except Exception as e:
+        print(style.error(f"Service reinstall failed: {e}"))
+        return 1
+
+    if os_type == "darwin":
+        plist_label = "com.miniclaw.agent"
+        plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
+
+        try:
+            print(style.info("Step 3: Reloading service..."))
+            subprocess.run(
+                ["launchctl", "unload", str(plist_path)],
+                capture_output=True,
+                check=False,
+            )
+            subprocess.run(["launchctl", "load", str(plist_path)], check=True)
+            print(style.success("Service reloaded successfully"))
+        except subprocess.CalledProcessError as e:
+            print(style.error(f"Failed to reload service: {e}"))
+            return 1
+    elif os_type == "linux":
+        try:
+            print(style.info("Step 3: Restarting service..."))
+            subprocess.run(["sudo", "systemctl", "restart", "miniclaw"], check=True)
+            print(style.success("Service restarted successfully"))
+        except subprocess.CalledProcessError as e:
+            print(style.error(f"Failed to restart service: {e}"))
+            return 1
+    elif os_type == "windows":
+        try:
+            print(style.info("Step 3: Restarting service..."))
+            subprocess.run(["sc", "stop", "MiniClaw"], capture_output=True, check=False)
+            import time
+
+            time.sleep(2)
+            subprocess.run(["sc", "start", "MiniClaw"], check=True)
+            print(style.success("Service restarted successfully"))
+        except subprocess.CalledProcessError as e:
+            print(style.error(f"Failed to restart service: {e}"))
+            return 1
+    else:
+        print(style.error(f"Unsupported operating system: {os_type}"))
+        return 1
+
+    print(style.success("Restart completed successfully!"))
+    return 0
 
 
 def run_uninstall_service(args: argparse.Namespace) -> int:
@@ -659,8 +764,9 @@ def run_cli() -> int:
     sub.add_parser("doctor", help="Check Python, workspace, config, Ollama, server")
     sub.add_parser("status", help="Show status (alias: doctor)")
     sub.add_parser("update", help="Update dependencies and existing installation")
+    sub.add_parser("restart", help="Reinstall package + service + reload")
     gateway_p = sub.add_parser(
-        "gateway", help="Start the server (web + Telegram) or manage as service"
+        "gateway", help="Start the Telegram coding-agent bridge and local monitor services"
     )
     host_default = os.getenv("MINICLAW_HOST", "127.0.0.1")
     gateway_p.add_argument("--host", default=host_default, help="Bind host")
@@ -694,7 +800,7 @@ def run_cli() -> int:
     skill_delete = sub.add_parser("skill-delete", help="Delete markdown skill file")
     skill_delete.add_argument("--id", required=True, help="Skill id")
 
-    chat = sub.add_parser("chat", help="Send chat message")
+    chat = sub.add_parser("chat", help="Deprecated local chat entrypoint; use Telegram instead")
     chat.add_argument("message", nargs="?", help="Message text")
     chat.add_argument("--source", default="cli", help="Message source label")
     chat.add_argument(
@@ -704,7 +810,7 @@ def run_cli() -> int:
     )
     chat.add_argument("--stdin", action="store_true", help="Read message from stdin")
     chat.add_argument("--json", action="store_true", help="Print full JSON response")
-    agent_p = sub.add_parser("agent", help="Chat with the agent (alias: chat)")
+    agent_p = sub.add_parser("agent", help="Deprecated local chat entrypoint; use Telegram instead")
     agent_p.add_argument(
         "-m", "--message", dest="agent_message", help="Message to send"
     )
@@ -799,6 +905,9 @@ def run_cli() -> int:
     tg_pair_start = tg_sub.add_parser("pair-start", help="Create Telegram pairing code")
     tg_pair_start.add_argument("--ttl", type=int, default=None, help="Code TTL seconds")
 
+    tg_pair_claim = tg_sub.add_parser("pair-claim", help="Approve a Telegram pairing request by claim code")
+    tg_pair_claim.add_argument("--code", required=True, help="One-time claim code shown in Telegram")
+
     tg_pair_confirm = tg_sub.add_parser("pair-confirm", help="Confirm pairing request")
     tg_pair_confirm.add_argument("--request-id", required=True)
 
@@ -833,6 +942,8 @@ def run_cli() -> int:
         return run_install(args)
     if args.command == "service":
         return run_service_command(args)
+    if args.command == "restart":
+        return run_restart(args)
     if args.command == "uninstall":
         return run_uninstall(args)
     if args.command == "doctor" or args.command == "status":
@@ -902,7 +1013,7 @@ def run_cli() -> int:
             os.environ["MINICLAW_PORT"] = str(args.port)
 
         print(style.header("Starting MiniClaw Server"))
-        print(style.info("Initializing services..."))
+        print(style.info("Initializing Telegram coding-agent services..."))
 
         # Show startup progress
         print(f"{style.list_item('Loading configuration')}")
@@ -914,6 +1025,7 @@ def run_cli() -> int:
         try:
             print(style.success("Server started successfully!"))
             print(style.info("Press Ctrl+C to stop the server"))
+            print(style.info("Instructions should now come from the paired Telegram chat."))
             run()
         except KeyboardInterrupt:
             print(f"\n{style.info('Server stopped by user')}")
@@ -922,49 +1034,13 @@ def run_cli() -> int:
             return 1
         return 0
     if args.command == "agent":
-        message = (
-            getattr(args, "agent_message", None)
-            or getattr(args, "message_pos", None)
-            or ""
-        ).strip()
-        if getattr(args, "stdin", False):
-            message = sys.stdin.read().strip()
-        if not message:
-            print(
-                style.error(
-                    'Usage: miniclaw agent -m "Your message"  or  miniclaw agent "Your message"'
-                )
+        print(
+            style.error(
+                "MiniClaw now accepts user instructions through Telegram only. "
+                "Send a message to the bot, then run `miniclaw telegram pair-claim --code <CODE>` on the host."
             )
-            return 1
-
-        print(style.info("Sending message to MiniClaw..."))
-        result = request_json(
-            base_url,
-            "/api/chat",
-            method="POST",
-            payload={
-                "message": message,
-                "source": "cli",
-                "provider_id": getattr(args, "provider", "") or "",
-            },
         )
-
-        if result.get("ok"):
-            if getattr(args, "json", False):
-                print_json(result)
-            else:
-                response = result.get("response", "")
-                print(f"\n{style.section('Response:')}")
-                print(response)
-                duration = result.get("duration_seconds", 0)
-                print(f"\n{style.dim(f'Duration: {duration:.2f}s')}")
-        else:
-            print(
-                style.error(
-                    f"Failed to send message: {result.get('error', 'Unknown error')}"
-                )
-            )
-        return 0
+        return 1
 
     try:
         if args.command == "health":
@@ -1169,44 +1245,13 @@ def run_cli() -> int:
             return 0
 
         if args.command == "chat":
-            if args.stdin:
-                message = sys.stdin.read().strip()
-            else:
-                message = (args.message or "").strip()
-            if not message:
-                print(
-                    style.error("Message is empty. Provide a message or use --stdin.")
+            print(
+                style.error(
+                    "MiniClaw is Telegram-first now, so local chat is disabled. "
+                    "Send the request from the paired Telegram chat and use this CLI for monitoring."
                 )
-                return 1
-
-            print(style.info("Sending message to MiniClaw..."))
-            result = request_json(
-                base_url,
-                "/api/chat",
-                method="POST",
-                payload={
-                    "message": message,
-                    "source": args.source,
-                    "provider_id": args.provider or "",
-                },
             )
-
-            if result.get("ok"):
-                if args.json:
-                    print_json(result)
-                else:
-                    response = result.get("response", "")
-                    print(f"\n{style.section('Response:')}")
-                    print(response)
-                    duration = result.get("duration_seconds", 0)
-                    print(f"\n{style.dim(f'Duration: {duration:.2f}s')}")
-            else:
-                print(
-                    style.error(
-                        f"Failed to send message: {result.get('error', 'Unknown error')}"
-                    )
-                )
-            return 0
+            return 1
 
         if args.command == "history":
             result = request_json(base_url, f"/api/history?limit={int(args.limit)}")
@@ -1621,6 +1666,17 @@ def run_cli() -> int:
                         "/api/telegram/pairing/start",
                         method="POST",
                         payload=payload,
+                    )
+                )
+                return 0
+
+            if args.telegram_command == "pair-claim":
+                print_json(
+                    request_json(
+                        base_url,
+                        "/api/telegram/pairing/claim",
+                        method="POST",
+                        payload={"claim_code": args.code},
                     )
                 )
                 return 0

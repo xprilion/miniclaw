@@ -168,6 +168,46 @@ def make_handler(state: AppState):
                 send_sse_event("error", error_data)
                 send_sse_event("done", "true")
 
+        def _handle_sse_events(self, state: AppState, query: Dict[str, Any]) -> None:
+            """Handle Server-Sent Events for real-time event streaming."""
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            since_id = int((query.get("since_id") or [0])[0])
+            last_event_id = since_id
+
+            def send_sse_event(event_data: Dict[str, Any]) -> None:
+                try:
+                    data = json.dumps(event_data)
+                    message = f"data: {data}\n\n"
+                    self.wfile.write(message.encode("utf-8"))
+                    self.wfile.flush()
+                except Exception:
+                    raise ConnectionResetError("Client disconnected")
+
+            try:
+                send_sse_event({"type": "connected", "since_id": since_id})
+
+                while True:
+                    latest_id = state.event_log.latest_id()
+                    if latest_id > last_event_id:
+                        events = state.event_log.list_since(since_id=last_event_id, limit=50)
+                        for event in events:
+                            send_sse_event(event)
+                            last_event_id = event.get("id", last_event_id + 1)
+                    time.sleep(1)
+            except ConnectionResetError:
+                pass
+            except Exception:
+                try:
+                    send_sse_event({"type": "error", "message": "Stream ended"})
+                except Exception:
+                    pass
+
         def _handle_openai_proxy(self) -> None:
             """Handle OpenAI-compatible API requests and proxy them to configured providers."""
             # Read the request body
@@ -313,6 +353,13 @@ def make_handler(state: AppState):
                 if path in WEB_ROUTES:
                     self._serve_web_file(WEB_ROUTES[path])
                     return
+                if path.startswith("/assets/"):
+                    relative = path[len("/assets/"):]
+                    if not relative:
+                        self._send_text("Missing asset file path", status=404)
+                        return
+                    self._serve_web_file("assets/" + relative)
+                    return
                 if path.startswith("/static/"):
                     relative = path[len("/static/"):]
                     if not relative:
@@ -401,6 +448,9 @@ def make_handler(state: AppState):
                         }
                     )
                     return
+                if path == "/api/events/stream":
+                    self._handle_sse_events(state, query)
+                    return
 
                 self._send_json({"ok": False, "error": f"Unknown endpoint: {path}"}, status=404)
             except Exception as exc:
@@ -432,8 +482,30 @@ def make_handler(state: AppState):
                     source = str(payload.get("source") or "web")
                     provider_id = str(payload.get("provider_id") or "").strip()
                     stream = bool(payload.get("stream") or False)
+                    command_channel = str(
+                        ((state.config_store.get() or {}).get("agent") or {}).get("command_channel")
+                        or "multi"
+                    ).strip().lower()
                     if not message:
                         self._send_json({"ok": False, "error": "message is required"}, status=400)
+                        return
+                    if command_channel == "telegram" and source not in {
+                        "telegram",
+                        "internal",
+                        "job",
+                        "scheduler",
+                        "smoke",
+                    }:
+                        self._send_json(
+                            {
+                                "ok": False,
+                                "error": (
+                                    "MiniClaw is configured for Telegram-only instructions. "
+                                    "Send the request through the paired Telegram chat instead."
+                                ),
+                            },
+                            status=403,
+                        )
                         return
 
                     if stream:
@@ -538,6 +610,20 @@ def make_handler(state: AppState):
                         return
                     try:
                         resolved = state.telegram.resolve_pairing_request(request_id, approve=True, actor="api")
+                    except ValueError as exc:
+                        self._send_json({"ok": False, "error": str(exc)}, status=400)
+                        return
+                    self._send_json({"ok": True, "request": resolved})
+                    return
+
+                if path == "/api/telegram/pairing/claim":
+                    payload = self._read_json()
+                    claim_code = str(payload.get("claim_code") or "").strip()
+                    if not claim_code:
+                        self._send_json({"ok": False, "error": "claim_code is required"}, status=400)
+                        return
+                    try:
+                        resolved = state.telegram.resolve_pairing_code(claim_code, actor="api")
                     except ValueError as exc:
                         self._send_json({"ok": False, "error": str(exc)}, status=400)
                         return

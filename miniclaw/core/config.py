@@ -121,10 +121,12 @@ class ConfigStore:
             "agent": {
                 "name": "MiniClaw",
                 "system_prompt_default": (
-                    "You are MiniClaw, optimized for smaller models. "
-                    "Be explicit about what actions you took, what data you used, and why.\n\n"
+                    "You are MiniClaw, a Telegram-first AI coding agent. "
+                    "Focus on code changes, terminal workflows, debugging, and repository operations. "
+                    "Inspect before editing, explain what you changed, and keep the user informed with concise progress updates.\n\n"
                     "Current date and time: {current_datetime} {timezone}"
                 ),
+                "command_channel": "telegram",
                 "timezone": "UTC",
                 "max_history_messages": 12,
                 "enabled_skills": [],
@@ -148,6 +150,7 @@ class ConfigStore:
                 "command_timeout_seconds": 25,
                 "output_char_limit": 12000,
                 "working_directory": str(BASE_DIR),
+                "telegram_approval_required_tools": ["run_command", "write_file"],
             },
             "mcp": {
                 "enabled": True,
@@ -350,6 +353,10 @@ class ConfigStore:
         )
 
         merged["agent"]["name"] = str(merged["agent"].get("name") or "MiniClaw")
+        command_channel = str(merged["agent"].get("command_channel") or "telegram").strip().lower()
+        if command_channel not in {"telegram", "multi"}:
+            command_channel = "telegram"
+        merged["agent"]["command_channel"] = command_channel
         merged["agent"]["timezone"] = str(merged["agent"].get("timezone") or "UTC")
         legacy_prompt = str(merged["agent"].get("system_prompt") or "").strip()
         default_prompt = str(
@@ -454,6 +461,12 @@ class ConfigStore:
         tools_raw = merged.get("tools")
         if not isinstance(tools_raw, dict):
             tools_raw = {}
+        telegram_approval_required_tools = tools_raw.get("telegram_approval_required_tools") or [
+            "run_command",
+            "write_file",
+        ]
+        if not isinstance(telegram_approval_required_tools, list):
+            telegram_approval_required_tools = [telegram_approval_required_tools]
         merged["tools"] = {
             "enabled": bool(tools_raw.get("enabled", True)),
             "max_steps": max(0, min(100, int(tools_raw.get("max_steps") or 4))),
@@ -469,6 +482,11 @@ class ConfigStore:
                 2000, min(200000, int(tools_raw.get("output_char_limit") or 12000))
             ),
             "working_directory": str(tools_raw.get("working_directory") or BASE_DIR),
+            "telegram_approval_required_tools": [
+                str(item).strip()
+                for item in telegram_approval_required_tools
+                if str(item).strip()
+            ],
             # Preserve additional tool configurations like permissions
             "permissions": (
                 dict(tools_raw.get("permissions", {}))

@@ -47,6 +47,17 @@ class MiniClawAgent:
         self._security = security_managers or {}
         self._history: deque[Dict[str, Any]] = deque(maxlen=400)
         self._chat_lock = threading.Lock()
+        self._session_id = f"session-{int(time.time() * 1000)}"
+        self._sessions: Dict[str, Dict[str, Any]] = {}
+        
+        # Initialize current session
+        self._sessions[self._session_id] = {
+            "id": self._session_id,
+            "start_time": utc_now(),
+            "last_activity": utc_now(),
+            "message_count": 0,
+            "title": None,
+        }
 
         # Initialize chain-of-thought enhancement components
         self._reasoning_engine = ReasoningEngine(event_log)
@@ -105,6 +116,47 @@ class MiniClawAgent:
         with self._chat_lock:
             self._history.clear()
         LOGGER.info("Agent conversation history cleared")
+    
+    def list_sessions(self) -> List[Dict[str, Any]]:
+        """List all sessions, newest first."""
+        with self._chat_lock:
+            sessions = list(self._sessions.values())
+            sessions.sort(key=lambda s: s.get("start_time", ""), reverse=True)
+            return sessions
+    
+    def history_for_session(self, session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get history entries for a specific session."""
+        safe_limit = max(1, min(int(limit), 400))
+        with self._chat_lock:
+            entries = [e for e in self._history if e.get("session_id") == session_id]
+            return entries[-safe_limit:]
+    
+    def create_session(self, meta: Optional[Dict[str, Any]] = None) -> str:
+        """Create a new session and return its ID."""
+        with self._chat_lock:
+            meta_payload = meta or {}
+            chat_id = meta_payload.get("chat_id")
+            
+            new_session_id = f"session-{int(time.time() * 1000)}"
+            self._session_id = new_session_id
+            self._sessions[new_session_id] = {
+                "id": new_session_id,
+                "start_time": utc_now(),
+                "last_activity": utc_now(),
+                "message_count": 0,
+                "title": None,
+                "chat_id": str(chat_id) if chat_id else None,
+            }
+            
+            # Also clear history when new session is created (backward compatible)
+            self._history.clear()
+            
+            LOGGER.info("Created new session: %s", new_session_id)
+            return new_session_id
+    
+    def get_current_session_id(self) -> str:
+        """Get the current session ID."""
+        return self._session_id
 
     def chat(self, user_message: str, source: str = "web", meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.chat_with_updates(user_message=user_message, source=source, meta=meta, status_callback=None)
@@ -122,6 +174,15 @@ class MiniClawAgent:
         LOGGER.info("Agent request source=%s message_chars=%d", source, len(content))
         meta_payload = copy.deepcopy(meta) if isinstance(meta, dict) else {}
         requested_provider_id = str(meta_payload.get("provider_id") or "").strip().lower()
+        tool_user_id = str(source or "default")
+        if source == "telegram":
+            chat_id = str(meta_payload.get("chat_id") or "").strip()
+            if chat_id:
+                tool_user_id = f"telegram:{chat_id}"
+        elif source in {"web", "cli", "api"}:
+            client_ip = str(meta_payload.get("client_ip") or "").strip()
+            if client_ip:
+                tool_user_id = f"{source}:{client_ip}"
 
         def report_status(message: str) -> None:
             if not status_callback:
@@ -460,8 +521,14 @@ class MiniClawAgent:
                             tool_result = self._tool_runner.run(
                                 tool_name,
                                 tool_args,
-                                trace={"trace_id": trace_id, "source": source, "step": len(tool_runs) + 1},
-                                user_id=source,  # Use source as user identifier for now
+                                trace={
+                                    "trace_id": trace_id,
+                                    "source": source,
+                                    "step": len(tool_runs) + 1,
+                                    "meta": meta_payload,
+                                    "client_ip": meta_payload.get("client_ip"),
+                                },
+                                user_id=tool_user_id,
                             )
                             tool_runs.append(
                                 {"tool": tool_name, "arguments": tool_args, "result": tool_result},
@@ -514,8 +581,14 @@ class MiniClawAgent:
                     tool_result = self._tool_runner.run(
                         tool_name,
                         tool_args,
-                        trace={"trace_id": trace_id, "source": source, "step": len(tool_runs) + 1},
-                        user_id=source,  # Use source as user identifier for now
+                        trace={
+                            "trace_id": trace_id,
+                            "source": source,
+                            "step": len(tool_runs) + 1,
+                            "meta": meta_payload,
+                            "client_ip": meta_payload.get("client_ip"),
+                        },
+                        user_id=tool_user_id,
                     )
                     tool_runs.append(
                         {
@@ -569,6 +642,7 @@ class MiniClawAgent:
                         "source": source,
                         "meta": meta_payload,
                         "timestamp": now,
+                        "session_id": self._session_id,
                     }
                 )
                 self._history.append(
@@ -584,8 +658,18 @@ class MiniClawAgent:
                             "tool_runs": tool_runs,
                         },
                         "timestamp": now,
+                        "session_id": self._session_id,
                     }
                 )
+                
+                # Update session info
+                if self._session_id in self._sessions:
+                    self._sessions[self._session_id]["last_activity"] = now
+                    self._sessions[self._session_id]["message_count"] += 2
+                    # Set title from first user message if not set
+                    if not self._sessions[self._session_id].get("title"):
+                        title = content[:50] + ("..." if len(content) > 50 else "")
+                        self._sessions[self._session_id]["title"] = title
 
                 self._plugin_registry.run_post_response(
                     {

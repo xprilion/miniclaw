@@ -14,20 +14,5 @@ dist/
 *.so
 *.egg
 
-
-# Frontend-specific ignores
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
-
 .DS_Store
 .env.example
-package-lock.json
-pnpm-lock.yaml
-bun.lockb
-yarn.lock
-site/doc-nav.html

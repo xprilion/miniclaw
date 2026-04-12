@@ -1,10 +1,12 @@
 """Ollama, OpenAI-compatible, LiteLLM, and OpenRouter chat API client."""
 from __future__ import annotations
 
+import gzip
 import json
+import ssl
+import zlib
 import urllib.error
 import urllib.request
-import ssl
 from typing import Any, Dict, List, Optional
 
 import openai
@@ -17,6 +19,69 @@ from ..core.util import LOGGER
 class ModelProviderClient:
     def __init__(self, event_log: EventLog) -> None:
         self._event_log = event_log
+
+    def _response_preview(self, payload: Any, limit: int = 280) -> str:
+        try:
+            text = json.dumps(payload, ensure_ascii=True, sort_keys=True)
+        except Exception:
+            text = str(payload)
+        text = text.strip()
+        if len(text) <= limit:
+            return text
+        return text[:limit] + "..."
+
+    def _provider_error_text(self, raw_response: Any) -> str:
+        if not isinstance(raw_response, dict):
+            return ""
+        raw_body = raw_response.get("raw_body")
+        if raw_body:
+            return str(raw_body)
+        error_value = raw_response.get("error")
+        if error_value:
+            if isinstance(error_value, dict):
+                detail = (
+                    error_value.get("message")
+                    or error_value.get("detail")
+                    or error_value.get("type")
+                    or self._response_preview(error_value)
+                )
+                return str(detail)
+            return str(error_value)
+        if raw_response.get("ok") is False:
+            detail = raw_response.get("detail")
+            if detail:
+                return str(detail)
+        return ""
+
+    def _ensure_content_or_raise(
+        self,
+        provider_label: str,
+        raw_response: Any,
+        content: str,
+        allow_empty: bool = False,
+    ) -> None:
+        if content or allow_empty:
+            return
+        error_text = self._provider_error_text(raw_response)
+        if error_text:
+            raise RuntimeError(f"{provider_label} returned an error: {error_text}")
+        raise RuntimeError(
+            f"{provider_label} returned an empty response. Raw response preview: "
+            f"{self._response_preview(raw_response)}"
+        )
+
+    def _decompress_body(self, body: bytes, encoding: str) -> bytes:
+        if encoding == "gzip":
+            return gzip.decompress(body)
+        elif encoding == "deflate":
+            try:
+                return zlib.decompress(body)
+            except zlib.error:
+                return zlib.decompress(body, -zlib.MAX_WBITS)
+        elif encoding == "br":
+            import brotli
+            return brotli.decompress(body)
+        return body
 
     def _request_json(
         self,
@@ -68,14 +133,18 @@ class ModelProviderClient:
 
         try:
             with urllib.request.urlopen(request, timeout=timeout_seconds, context=ssl_context) as response:
-                body = response.read().decode("utf-8", errors="replace")
+                body = response.read()
+                content_encoding = response.headers.get("Content-Encoding", "").lower()
+                if content_encoding:
+                    body = self._decompress_body(body, content_encoding)
+                body = body.decode("utf-8", errors="replace")
                 self._event_log.add(
                     "network.response",
                     "Incoming HTTP response",
                     {
                         "url": target,
                         "status": response.status,
-                        "body_preview": body[:500] if body else "",  # Log only first 500 chars
+                        "body_preview": body[:2000] if body else "",  # Log more chars for debugging
                         "content_type": response.headers.get("Content-Type", ""),
                     },
                 )
@@ -98,14 +167,18 @@ class ModelProviderClient:
                 else:
                     return {}
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
+            body = exc.read()
+            content_encoding = exc.headers.get("Content-Encoding", "").lower() if exc.headers else ""
+            if content_encoding:
+                body = self._decompress_body(body, content_encoding)
+            body = body.decode("utf-8", errors="replace")
             self._event_log.add(
                 "network.error",
                 "HTTP request failed",
                 {
                     "url": target,
                     "status": exc.code,
-                    "body_preview": body[:500] if body else "",  # Log only first 500 chars
+                    "body_preview": body[:2000] if body else "",  # Log more chars for debugging
                     "content_type": exc.headers.get("Content-Type", "") if exc.headers else "",
                 },
             )
@@ -256,13 +329,20 @@ class ModelProviderClient:
                         break
             if not content:
                 content = str(raw_response.get("content") or "").strip()
+            tool_calls = message.get("tool_calls")
+            has_tool_calls = isinstance(tool_calls, list) and bool(tool_calls)
+            self._ensure_content_or_raise(
+                "Ollama provider",
+                raw_response,
+                content,
+                allow_empty=has_tool_calls,
+            )
             usage = {
                 "prompt_tokens": int(raw_response.get("prompt_eval_count") or 0),
                 "completion_tokens": int(raw_response.get("eval_count") or 0),
             }
             usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]
             out_message: Dict[str, Any] = {"role": "assistant", "content": content}
-            tool_calls = message.get("tool_calls")
             if isinstance(tool_calls, list) and tool_calls:
                 out_message["tool_calls"] = tool_calls
             return {
@@ -380,6 +460,12 @@ class ModelProviderClient:
                 choice = response.choices[0]
                 if choice.message and choice.message.content:
                     content = str(choice.message.content).strip()
+            raw_response = response.model_dump() if hasattr(response, 'model_dump') else response.dict()
+            self._ensure_content_or_raise(
+                "OpenAI-compatible provider",
+                raw_response,
+                content,
+            )
 
             # Extract usage information
             usage = {
@@ -398,7 +484,7 @@ class ModelProviderClient:
                 "model": model,
                 "message": {"role": "assistant", "content": content},
                 "usage": usage,
-                "raw_response": response.model_dump() if hasattr(response, 'model_dump') else response.dict(),
+                "raw_response": raw_response,
             }
 
         except openai.APIError as e:
@@ -468,6 +554,7 @@ class ModelProviderClient:
             message = first.get("message") if isinstance(first, dict) else {}
             if isinstance(message, dict):
                 content = str(message.get("content") or "").strip()
+        self._ensure_content_or_raise("LiteLLM provider", raw_response, content)
 
         usage_raw = raw_response.get("usage") if isinstance(raw_response, dict) else {}
         if not isinstance(usage_raw, dict):
@@ -532,6 +619,7 @@ class ModelProviderClient:
             message = first.get("message") if isinstance(first, dict) else {}
             if isinstance(message, dict):
                 content = str(message.get("content") or "").strip()
+        self._ensure_content_or_raise("OpenRouter provider", raw_response, content)
 
         usage_raw = raw_response.get("usage") if isinstance(raw_response, dict) else {}
         if not isinstance(usage_raw, dict):

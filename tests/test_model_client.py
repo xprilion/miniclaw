@@ -487,6 +487,44 @@ class TestModelProviderClient(unittest.TestCase):
             self.assertEqual(result["usage"]["prompt_tokens"], 10)
             self.assertEqual(result["usage"]["completion_tokens"], 20)
 
+    def test_chat_openrouter_raises_on_provider_error_payload(self):
+        """OpenRouter in-body errors should be surfaced clearly."""
+        provider = {
+            "type": "openrouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "model": "openai/gpt-4o-mini",
+            "id": "test_openrouter",
+            "api_key": "test-key",
+        }
+        messages = [{"role": "user", "content": "Hello"}]
+
+        with patch.object(self.client, "_request_json") as mock_request:
+            mock_request.return_value = {"error": {"message": "Upstream provider timed out"}}
+
+            with self.assertRaises(RuntimeError) as context:
+                self.client._chat_openrouter(provider, messages)
+
+        self.assertIn("Upstream provider timed out", str(context.exception))
+
+    def test_chat_openrouter_raises_on_empty_response(self):
+        """OpenRouter empty replies should raise a useful error instead of returning blank content."""
+        provider = {
+            "type": "openrouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "model": "openai/gpt-4o-mini",
+            "id": "test_openrouter",
+            "api_key": "test-key",
+        }
+        messages = [{"role": "user", "content": "Hello"}]
+
+        with patch.object(self.client, "_request_json") as mock_request:
+            mock_request.return_value = {"id": "resp_123", "choices": [{"message": {}}]}
+
+            with self.assertRaises(RuntimeError) as context:
+                self.client._chat_openrouter(provider, messages)
+
+        self.assertIn("empty response", str(context.exception).lower())
+
     def test_chat_dispatch_by_provider_type(self):
         """Test chat method dispatches to correct provider type."""
         provider = {
